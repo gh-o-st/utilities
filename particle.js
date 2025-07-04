@@ -6,8 +6,6 @@ class ParticleSystem {
     constructor(maxParticles) {
         this.maxParticles = maxParticles;
         this.count = 0;
-
-        // Particle properties stored in typed arrays
         this.pos = new Float32Array(maxParticles * 2); // x, y
         this.prevPos = new Float32Array(maxParticles * 2); // For Verlet integration
         this.acc = new Float32Array(maxParticles * 2); // x, y
@@ -16,13 +14,22 @@ class ParticleSystem {
         this.lifespan = new Float32Array(maxParticles); // Max life
         this.size = new Float32Array(maxParticles);
         this.active = new Uint8Array(maxParticles); // 0 for inactive, 1 for active
+        this.density = new Float32Array(maxParticles);
+        this.pressure = new Float32Array(maxParticles);
+        this.rotation = new Float32Array(maxParticles); // Rotation angle
+        this.angularVelocity = new Float32Array(maxParticles); // Angular velocity
+        this.angularAcceleration = new Float32Array(maxParticles); // Angular acceleration
+        this.mass = new Float32Array(maxParticles); // Mass of each particle
+        this.friction = new Float32Array(maxParticles); // Friction coefficient
+        this.elasticity = new Float32Array(maxParticles); // Elasticity coefficient
+        this.integrity = new Uint16Array(maxParticles); // Integrity of each particle
     }
 
     /**
      * Emits a new particle from the pool.
      * @param {object} props - Particle properties { x, y, vx, vy, r, g, b, a, lifespan, size }
      */
-    emit({ x, y, vx = 0, vy = 0, r = 1, g = 1, b = 1, a = 1, lifespan = 100, size = 1 }) {
+    emit({ x, y, vx = 0, vy = 0, r = 1, g = 1, b = 1, a = 1, lifespan = Infinity, size = 1, density = 0, pressure = 0, mass = 1, friction = 0.1, elasticity = 0.3, integrity = 100, rotation = 0, angularVelocity = 0, angularAcceleration = 0 }) {
         if (this.count >= this.maxParticles) return;
 
         const i = this.count;
@@ -45,6 +52,19 @@ class ParticleSystem {
         this.lifespan[i] = lifespan;
         this.size[i] = size;
         this.active[i] = 1;
+        
+        // Initialize water properties
+        this.density[i] = 0;
+        this.pressure[i] = 0;
+
+        // Initialize new properties
+        this.mass[i] = mass;
+        this.friction[i] = friction;
+        this.elasticity[i] = elasticity;
+        this.integrity[i] = integrity;
+        this.rotation[i] = rotation;
+        this.angularVelocity[i] = angularVelocity;
+        this.angularAcceleration[i] = angularAcceleration;
 
         this.count++;
     }
@@ -92,6 +112,17 @@ class ParticleSystem {
         [this.life[index], this.life[lastI]] = [this.life[lastI], this.life[index]];
         [this.lifespan[index], this.lifespan[lastI]] = [this.lifespan[lastI], this.lifespan[index]];
         [this.size[index], this.size[lastI]] = [this.size[lastI], this.size[index]];
+        [this.density[index], this.density[lastI]] = [this.density[lastI], this.density[index]];
+        [this.pressure[index], this.pressure[lastI]] = [this.pressure[lastI], this.pressure[index]];
+        [this.mass[index], this.mass[lastI]] = [this.mass[lastI], this.mass[index]];
+        [this.friction[index], this.friction[lastI]] = [this.friction[lastI], this.friction[index]];
+        [this.elasticity[index], this.elasticity[lastI]] = [this.elasticity[lastI], this.elasticity[index]];
+        [this.integrity[index], this.integrity[lastI]] = [this.integrity[lastI], this.integrity[index]];
+        [this.rotation[index], this.rotation[lastI]] = [this.rotation[lastI], this.rotation[index]];
+        [this.angularVelocity[index], this.angularVelocity[lastI]] = [this.angularVelocity[lastI], this.angularVelocity[index]];
+        [this.angularAcceleration[index], this.angularAcceleration[lastI]] = [this.angularAcceleration[lastI], this.angularAcceleration[index]];
     }
 }
+
 export default ParticleSystem;
+export { ParticleSystem as VectorParticle };

@@ -70,6 +70,8 @@ const canvasManager = () => {
                 if (ctx) {
                     ctx.setTransform(1, 0, 0, 1, 0, 0);
                     ctx.clearRect(0, 0, el.width, el.height);
+                    // Set transform to scale drawing commands by dpr
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 }
             } catch (error) {
                 console.error('Canvas resize failed:', error);
