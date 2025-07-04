@@ -5,19 +5,19 @@ This repository contains a collection of JavaScript utility modules designed to 
 ## Included Utilities
 
 - **Bitboard Implementation**  
-  [bitboard.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@main/bitboard.js)  
+  [bitboard.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/bitboard.js)  
   Efficient bitwise board representation for games and simulations.
 
 - **Canvas Manager**  
-  [canvasmanager.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@main/canvasmanager.js)  
+  [canvasmanager.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/canvasmanager.js)  
   Simplifies canvas setup, resizing, and drawing operations.
 
 - **Particle System**  
-  [particle.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@main/particle.js)  
+  [particle.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/particle.js)  
   Flexible particle system for effects and simulations.
 
 - **Perlin Noise Generator**  
-  [perlin.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@main/perlin.js)  
+  [perlin.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/perlin.js)  
   Smooth, natural-looking noise for animations and procedural content.
 
 ## Usage
@@ -25,7 +25,7 @@ This repository contains a collection of JavaScript utility modules designed to 
 To use any utility in your own projects, just import the desired module via JSDelivr:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/gh-o-st/utilities@main/bitboard.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/bitboard.js"></script>
 <!-- Replace bitboard.js with any other utility as needed -->
 ```
 
