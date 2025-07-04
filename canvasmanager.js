@@ -53,118 +53,110 @@ const canvasManager = () => {
             }
         };
 
-        const resize = (w = 'full', h = 'full') => {
-            checkDestroyed();
-            try {
-                width = validate(w, 'width');
-                height = validate(h, 'height');
+        const controller = {
+            resize(w = 'full', h = 'full') {
+                checkDestroyed();
+                try {
+                    width = validate(w, 'width');
+                    height = validate(h, 'height');
 
-                dpr = window.devicePixelRatio || 1;
+                    dpr = window.devicePixelRatio || 1;
 
-                el.width = width * dpr;
-                el.height = height * dpr;
+                    el.width = width * dpr;
+                    el.height = height * dpr;
 
-                el.style.width = `${width}px`;
-                el.style.height = `${height}px`;
+                    el.style.width = `${width}px`;
+                    el.style.height = `${height}px`;
 
-                if (ctx) {
-                    ctx.setTransform(1, 0, 0, 1, 0, 0);
-                    ctx.clearRect(0, 0, el.width, el.height);
-                    // Set transform to scale drawing commands by dpr
-                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                    if (ctx) {
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        ctx.clearRect(0, 0, el.width, el.height);
+                        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                    }
+                } catch (error) {
+                    console.error('Canvas resize failed:', error);
+                    throw error;
                 }
-            } catch (error) {
-                console.error('Canvas resize failed:', error);
-                throw error;
-            }
-        };
+                return controller;
+            },
 
-        const context = (type = '2d', options = {}) => {
-            checkDestroyed();
-            try {
-                ctx = el.getContext(type, options);
-                if (!ctx) {
-                    throw new Error(`Failed to get '${type}' context`);
+            context(type = '2d', options = {}) {
+                checkDestroyed();
+                try {
+                    ctx = el.getContext(type, options);
+                    if (!ctx) {
+                        throw new Error(`Failed to get '${type}' context`);
+                    }
+                    return ctx;
+                } catch (error) {
+                    console.error('Context creation failed:', error);
+                    throw error;
                 }
-                return ctx;
-            } catch (error) {
-                console.error('Context creation failed:', error);
-                throw error;
-            }
-        };
+            },
 
-        const listen = (signal = 'resize', time = 250) => {
-            checkDestroyed();
-            if (typeof time !== 'number' || time < 0) {
-                throw new TypeError('time must be a non-negative number');
-            }
-
-            if (signal === 'resize') {
-                // Clean up existing listener
-                if (resizeHandler) {
-                    window.removeEventListener('resize', resizeHandler);
+            listen(signal = 'resize', time = 250) {
+                checkDestroyed();
+                if (typeof time !== 'number' || time < 0) {
+                    throw new TypeError('time must be a non-negative number');
                 }
-                
-                resizeHandler = () => {
-                    clearTimeout(resizeTimeout);
-                    resizeTimeout = setTimeout(() => {
-                        if (!isDestroyed) {
-                            resize(width === 0 ? 'full' : width, height === 0 ? 'full' : height);
+
+                if (signal === 'resize') {
+                    if (resizeHandler) {
+                        window.removeEventListener('resize', resizeHandler);
+                    }
+                    
+                    resizeHandler = () => {
+                        clearTimeout(resizeTimeout);
+                        resizeTimeout = setTimeout(() => {
+                            if (!isDestroyed) {
+                                controller.resize(width === 0 ? 'full' : width, height === 0 ? 'full' : height);
+                            }
+                        }, time);
+                    };
+                    window.addEventListener('resize', resizeHandler);
+                }
+
+                if (signal === 'dpr') {
+                    if (dprInterval) {
+                        clearInterval(dprInterval);
+                    }
+                    
+                    dprInterval = setInterval(() => {
+                        if (isDestroyed) {
+                            clearInterval(dprInterval);
+                            return;
+                        }
+                        const current = window.devicePixelRatio || 1;
+                        if (current !== dpr) {
+                            dpr = current;
+                            controller.resize(width === 0 ? 'full' : width, height === 0 ? 'full' : height);
                         }
                     }, time);
-                };
-                window.addEventListener('resize', resizeHandler);
-            }
+                }
+                return controller;
+            },
 
-            if (signal === 'dpr') {
-                // Clean up existing interval
-                if (dprInterval) {
-                    clearInterval(dprInterval);
+            destroy() {
+                isDestroyed = true;
+                
+                if (resizeTimeout) {
+                    clearTimeout(resizeTimeout);
+                    resizeTimeout = null;
                 }
                 
-                dprInterval = setInterval(() => {
-                    if (isDestroyed) {
-                        clearInterval(dprInterval);
-                        return;
-                    }
-                    const current = window.devicePixelRatio || 1;
-                    if (current !== dpr) {
-                        dpr = current;
-                        resize(width === 0 ? 'full' : width, height === 0 ? 'full' : height);
-                    }
-                }, time);
-            }
-        };
+                if (resizeHandler) {
+                    window.removeEventListener('resize', resizeHandler);
+                    resizeHandler = null;
+                }
+                
+                if (dprInterval) {
+                    clearInterval(dprInterval);
+                    dprInterval = null;
+                }
+                
+                ctx = null;
+            },
 
-        /**
-         * Clean up resources and event listeners
-         */
-        const destroy = () => {
-            isDestroyed = true;
-            
-            if (resizeTimeout) {
-                clearTimeout(resizeTimeout);
-                resizeTimeout = null;
-            }
-            
-            if (resizeHandler) {
-                window.removeEventListener('resize', resizeHandler);
-                resizeHandler = null;
-            }
-            
-            if (dprInterval) {
-                clearInterval(dprInterval);
-                dprInterval = null;
-            }
-            
-            ctx = null;
-        };
-
-        return {
-            resize,
-            context,
-            listen,
-            destroy,
             validate,
             get el() { checkDestroyed(); return el; },
             get ctx() { checkDestroyed(); return ctx; },
@@ -173,6 +165,8 @@ const canvasManager = () => {
             get dpr() { return dpr; },
             get isDestroyed() { return isDestroyed; }
         };
+
+        return controller;
     };
 
     return {
