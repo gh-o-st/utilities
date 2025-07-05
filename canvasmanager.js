@@ -82,16 +82,27 @@ const canvasManager = () => {
 
             context(type = '2d', options = {}) {
                 checkDestroyed();
-                try {
+
+                if (!ctx) {
                     ctx = el.getContext(type, options);
                     if (!ctx) {
                         throw new Error(`Failed to get '${type}' context`);
                     }
-                    return ctx;
-                } catch (error) {
-                    console.error('Context creation failed:', error);
-                    throw error;
+
+                    // Only resize if we haven't already
+                    if (width === 0 || height === 0) {
+                        const w = el.clientWidth;
+                        const h = el.clientHeight;
+
+                        if (!w || !h) {
+                            console.warn(
+                                'Canvas has no visible size; falling back to default 300x150.'
+                            );
+                        }
+                        controller.resize(w || 300, h || 150);
+                    }
                 }
+                return ctx;
             },
 
             listen(signal = 'resize', time = 250) {
