@@ -31,7 +31,6 @@ To use any utility in your own projects, just import the desired module via JSDe
 
 ```html
 <script src="https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/bitboard.js"></script>
-<!-- Replace bitboard.js with any other utility as needed -->
 ```
 
 ## License
