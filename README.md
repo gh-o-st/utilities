@@ -20,6 +20,11 @@ This repository contains a collection of JavaScript utility modules designed to 
   [perlin.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/perlin.js)  
   Smooth, natural-looking noise for animations and procedural content.
 
+- **Color Utility**  
+  [color.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/color.js)  
+  Full featured color manipulation, generation, and identification library.
+
+
 ## Usage
 
 To use any utility in your own projects, just import the desired module via JSDelivr:
