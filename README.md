@@ -20,6 +20,11 @@ This repository contains a collection of JavaScript utility modules designed to 
   [perlin.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/perlin.js)  
   Smooth, natural-looking noise for animations and procedural content.
 
+- **Chaotic Attractors**  
+  [attractors.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/attractors.js)  
+  Cannonically correct chaotic system implementations.
+
+
 - **Color Utility**  
   [color.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/color.js)  
   Full featured color manipulation, generation, and identification library.
