@@ -1,4 +1,4 @@
-const FPSCounter = class {
+export default class FPSCounter {
     constructor() {
         this.fps = 0;
         this.frameCount = 0;
@@ -41,5 +41,4 @@ const FPSCounter = class {
         this.lastTime = currentTime;
         requestAnimationFrame(() => this.animate());
     }
-};
-export { FPSCounter };
+}
