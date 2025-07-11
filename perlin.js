@@ -1,12 +1,31 @@
+/**
+ * Perlin noise and flow field utilities.
+ * @namespace perlin
+ */
 const perlin = {
+    /**
+     * Gradient vectors for 3D Perlin noise.
+     * @type {Array<Array<number>>}
+     */
     grad3: [
         [1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0],
         [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1],
         [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1]
     ],
+    /**
+     * Permutation array for noise generation.
+     * @type {Array<number>}
+     */
     p: [],
+    /**
+     * Permutation table for noise generation (doubled for overflow).
+     * @type {Uint8Array}
+     */
     perm: new Uint8Array(512),
 
+    /**
+     * Initializes the permutation tables for Perlin noise.
+     */
     init: function() {
         for (let i = 0; i < 256; i++) {
             this.p[i] = Math.floor(Math.random() * 256);
@@ -16,18 +35,45 @@ const perlin = {
         }
     },
 
+    /**
+     * Computes dot product of gradient and position vector.
+     * @param {Array<number>} g Gradient vector
+     * @param {number} x X component
+     * @param {number} y Y component
+     * @param {number} z Z component
+     * @returns {number} Dot product
+     */
     dot: function(g, x, y, z) {
         return g[0] * x + g[1] * y + g[2] * z;
     },
 
+    /**
+     * Linear interpolation between a and b by t.
+     * @param {number} a Start value
+     * @param {number} b End value
+     * @param {number} t Interpolation factor
+     * @returns {number} Interpolated value
+     */
     mix: function(a, b, t) {
         return (1.0 - t) * a + t * b;
     },
 
+    /**
+     * Fade function for Perlin noise smoothing.
+     * @param {number} t Value to fade
+     * @returns {number} Smoothed value
+     */
     fade: function(t) {
         return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
     },
 
+    /**
+     * Computes 3D Perlin noise value at (x, y, z).
+     * @param {number} x X coordinate
+     * @param {number} y Y coordinate
+     * @param {number} z Z coordinate
+     * @returns {number} Noise value in range [-1, 1]
+     */
     noise: function(x, y, z) {
         let X = Math.floor(x);
         let Y = Math.floor(y);
@@ -77,12 +123,14 @@ const perlin = {
     },
 
     /**
-     * Generates a flow field vector at a specific position
-     * @param {number} x - X position
-     * @param {number} y - Y position  
-     * @param {number} time - Time for animation
-     * @param {object} options - { scale: 0.01, strength: 50 }
-     * @returns {object} Flow vector { x, y }
+     * Generates a flow field vector at a specific position.
+     * @param {number} x X position
+     * @param {number} y Y position
+     * @param {number} [time=0] Time for animation
+     * @param {object} [options={}] Options for flow field
+     * @param {number} [options.scale=0.01] Scale of noise
+     * @param {number} [options.strength=50] Strength of flow
+     * @returns {{x: number, y: number}} Flow vector
      */
     flowField: function(x, y, time = 0, options = {}) {
         const { scale = 0.01, strength = 50 } = options;
@@ -107,12 +155,17 @@ const perlin = {
     },
 
     /**
-     * Generates atmospheric flow with Lorenz attractors and vortices
-     * @param {number} x - X position
-     * @param {number} y - Y position
-     * @param {number} time - Time for animation
-     * @param {object} options - Flow parameters
-     * @returns {object} Atmospheric flow vector { x, y }
+     * Generates atmospheric flow with Lorenz attractors and vortices.
+     * @param {number} x X position
+     * @param {number} y Y position
+     * @param {number} [time=0] Time for animation
+     * @param {object} [options={}] Flow parameters
+     * @param {number} [options.scale=0.003] Scale of noise
+     * @param {number} [options.strength=40] Strength of flow
+     * @param {number} [options.vortexCount=3] Number of vortices
+     * @param {number} [options.chaosStrength=0.8] Strength of chaos
+     * @param {{x: number, y: number}} [options.globalFlow={x:0.5,y:0.1}] Global wind vector
+     * @returns {{x: number, y: number}} Atmospheric flow vector
      */
     atmosphericFlow: function(x, y, time = 0, options = {}) {
         const { 
@@ -135,7 +188,7 @@ const perlin = {
             // Lorenz-inspired parameters
             const sigma = 10 + i * 2;
             const rho = 28 + i * 5;
-            const beta = 8/3;
+            // const beta = 8/3; // Not used in 2D flow
             
             // Distance from attractor center
             const dx = (x - centerX * (window.innerWidth || 800) / 1000) * 0.01;
@@ -161,12 +214,13 @@ const perlin = {
     },
 
     /**
-     * Renders atmospheric flow field with vortices
-     * @param {CanvasRenderingContext2D} ctx - Canvas context
-     * @param {number} width - Canvas width
-     * @param {number} height - Canvas height
-     * @param {number} time - Current time
-     * @param {object} options - Render options
+     * Renders atmospheric flow field with vortices.
+     * @param {CanvasRenderingContext2D} ctx Canvas context
+     * @param {number} width Canvas width
+     * @param {number} height Canvas height
+     * @param {number} [time=0] Current time
+     * @param {object} [options={}] Render options
+     * @param {number} [options.resolution=20] Grid resolution
      */
     renderAtmosphericField: function(ctx, width, height, time = 0, options = {}) {
         const { resolution = 20, ...flowOptions } = options;

@@ -1,24 +1,20 @@
 /**
- * Fizzix - Simple physics engine for particle systems using Verlet integration
+ * Fizzix - Simple physics engine for particle systems using Verlet integration.
+ * Provides methods for SPH fluid simulation, force application, integration, and boundary constraints.
+ * @namespace Fizzix
  */
 const Fizzix = {
     /**
-     * Computes density and pressure for each particle (SPH)
-     * @param {ParticleSystem} particles
-     * @param {number} h - Smoothing radius
-     * @param {number} restDensity - Rest density of the fluid
-     * @param {number} k - Pressure constant
-     */
-    /**
-     * Optimized: Computes density and pressure for each particle (SPH) using a spatial grid
-     * @param {ParticleSystem} particles
-     * @param {number} h - Smoothing radius
-     * @param {number} restDensity - Rest density of the fluid
-     * @param {number} k - Pressure constant
-     * @param {Array[]} spatialGrid - Array of arrays of particle indices (from water.js)
-     * @param {number} gridCols - Number of columns in the grid
-     * @param {number} gridRows - Number of rows in the grid
-     * @param {number} gridSize - Size of each grid cell
+     * Computes density and pressure for each particle (SPH).
+     * Optimized: Uses a spatial grid for neighbor search if provided.
+     * @param {ParticleSystem} particles - The particle system.
+     * @param {number} h - Smoothing radius.
+     * @param {number} [restDensity=1] - Rest density of the fluid.
+     * @param {number} [k=0.04] - Pressure constant.
+     * @param {Array[]} [spatialGrid=null] - Array of arrays of particle indices (optional).
+     * @param {number} [gridCols=0] - Number of columns in the grid.
+     * @param {number} [gridRows=0] - Number of rows in the grid.
+     * @param {number} [gridSize=0] - Size of each grid cell.
      */
     computeDensityPressure(particles, h, restDensity = 1, k = 0.04, spatialGrid = null, gridCols = 0, gridRows = 0, gridSize = 0) {
         const h2 = h * h;
@@ -70,20 +66,15 @@ const Fizzix = {
     },
 
     /**
-     * Applies SPH pressure and viscosity forces
-     * @param {ParticleSystem} particles
-     * @param {number} h - Smoothing radius
-     * @param {number} mu - Viscosity constant
-     */
-    /**
-     * Optimized: Applies SPH pressure and viscosity forces using a spatial grid
-     * @param {ParticleSystem} particles
-     * @param {number} h - Smoothing radius
-     * @param {number} mu - Viscosity constant
-     * @param {Array[]} spatialGrid - Array of arrays of particle indices (from water.js)
-     * @param {number} gridCols - Number of columns in the grid
-     * @param {number} gridRows - Number of rows in the grid
-     * @param {number} gridSize - Size of each grid cell
+     * Applies SPH pressure and viscosity forces.
+     * Optimized: Uses a spatial grid for neighbor search if provided.
+     * @param {ParticleSystem} particles - The particle system.
+     * @param {number} h - Smoothing radius.
+     * @param {number} [mu=0.1] - Viscosity constant.
+     * @param {Array[]} [spatialGrid=null] - Array of arrays of particle indices (optional).
+     * @param {number} [gridCols=0] - Number of columns in the grid.
+     * @param {number} [gridRows=0] - Number of rows in the grid.
+     * @param {number} [gridSize=0] - Size of each grid cell.
      */
     applySPHForces(particles, h, mu = 0.1, spatialGrid = null, gridCols = 0, gridRows = 0, gridSize = 0) {
         const h2 = h * h;
@@ -155,10 +146,10 @@ const Fizzix = {
         }
     },
     /**
-     * Applies a force to a particle
-     * @param {ParticleSystem} particles - The particle system
-     * @param {number} index - Particle index
-     * @param {object} force - Force vector { x, y }
+     * Applies a force to a particle.
+     * @param {ParticleSystem} particles - The particle system.
+     * @param {number} index - Particle index.
+     * @param {{x: number, y: number}} force - Force vector.
      */
     applyForce(particles, index, force) {
         const i2 = index * 2;
@@ -167,9 +158,9 @@ const Fizzix = {
     },
 
     /**
-     * Updates particle physics using Verlet integration
-     * @param {ParticleSystem} particles - The particle system
-     * @param {number} dt - Delta time
+     * Updates particle physics using Verlet integration.
+     * @param {ParticleSystem} particles - The particle system.
+     * @param {number} dt - Delta time.
      */
     update(particles, dt) {
         const dtSq = dt * dt;
@@ -202,9 +193,9 @@ const Fizzix = {
     },
 
     /**
-     * Constrains particles to a boundary
-     * @param {ParticleSystem} particles - The particle system
-     * @param {object} bounds - Boundary { x, y, width, height }
+     * Constrains particles to a boundary.
+     * @param {ParticleSystem} particles - The particle system.
+     * @param {{x: number, y: number, width: number, height: number}} bounds - Boundary box.
      */
     constrain(particles, bounds) {
         for (let i = 0; i < particles.count; i++) {
@@ -214,7 +205,7 @@ const Fizzix = {
             const vx = x - particles.prevPos[i2];
             const vy = y - particles.prevPos[i2 + 1];
 
-            const friction = particles.friction[i] || 0.1;
+            const cf = particles.friction[i] || 0.1;
             const elasticity = particles.elasticity[i] || 0.3;
 
             if (x > bounds.width) {
@@ -236,9 +227,9 @@ const Fizzix = {
     },
 
     /**
-     * Updates particle positions using Verlet integration
-     * @param {ParticleSystem} particles - The particle system
-     * @param {number} dt - Delta time
+     * Updates particle positions using Verlet integration.
+     * @param {ParticleSystem} particles - The particle system.
+     * @param {number} dt - Delta time.
      */
     updatePositions(particles, dt) {
         const dtSq = dt * dt;

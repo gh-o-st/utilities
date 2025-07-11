@@ -1,8 +1,14 @@
 /**
- * BitBoard — a compact 2D grid of values packed into Uint32Array.
- * Supports up to 32 bits per cell (bigInt is too slow).
+ * BitBoard is a compact, efficient grid structure for storing fixed-width integer values per cell,
+ * using bit-packing into a Uint32Array. Supports grids up to large sizes, with configurable bits per cell.
+ *
+ * @class
+ * @example
+ * // Create a 8x8 board with 2 bits per cell
+ * const board = new BitBoard(8, 8, 2);
  */
 const BitBoard = class {
+
     /**
      * @param {number} rows - Number of rows in the grid
      * @param {number} cols - Number of columns in the grid
@@ -68,39 +74,60 @@ const BitBoard = class {
         if (bitOffset + this.bitsPerCell <= 32) {
             return (this.data[startWord] >>> bitOffset) & this.cellMask;
         }
-        
-        // Handle cross-word case
+
+        // Delegate cross-word case to helper
+        return this._getCrossWordValue(startWord, bitOffset);
+    }
+
+    /**
+     * @param {number} bitOffset
+     * @returns {number}
+     */
+    _getCrossWordValue(startWord, bitOffset) {
         const firstBits = 32 - bitOffset;
         const secondBits = this.bitsPerCell - firstBits;
-        
+
         // Bounds check for data array
         if (startWord + 1 >= this.data.length) {
             throw new Error("Internal error: bit index exceeds data array bounds");
         }
-        
+
         const firstPart = this.data[startWord] >>> bitOffset;
-        const secondPart = this.data[startWord + 1] & ((1 << secondBits) - 1);
-        
+        const secondMask = secondBits === 32 ? 0xFFFFFFFF : ((1 << secondBits) - 1);
+        const secondPart = this.data[startWord + 1] & secondMask;
+
         return (firstPart | (secondPart << firstBits)) & this.cellMask;
     }
 
+
     /**
-     * Sets the value at the given cell
-     * @param {number} row 
-     * @param {number} col 
-     * @param {number} value 
+     * Sets the value of a cell at the specified row and column in the bitboard.
+     * 
+     * Validates that the value is a non-negative integer and does not exceed the maximum allowed
+     * for the configured bits per cell. Handles both single-word and cross-word cases when setting
+     * the value in the underlying data array.
+     * 
+     * @param {number} row - The row index of the cell to set.
+     * @param {number} col - The column index of the cell to set.
+     * @param {number} value - The non-negative integer value to set in the cell.
+     * @throws {TypeError} If the value is not a non-negative integer.
+     * @throws {RangeError} If the value exceeds the maximum allowed for the cell size.
+     * @throws {Error} If the bit index exceeds the bounds of the data array.
      */
     set(row, col, value) {
         // Validate value
         if (!Number.isInteger(value) || value < 0) {
             throw new TypeError("Value must be a non-negative integer");
         }
+        if (value > this.cellMask) {
+            throw new RangeError(`Value (${value}) exceeds maximum allowed for bitsPerCell (${this.bitsPerCell}): ${this.cellMask}`);
+        }
         
         const bitIndex = this.getBitIndex(row, col);
         const startWord = Math.floor(bitIndex / 32);
         const bitOffset = bitIndex % 32;
-        
-        // Clamp value to cell size
+
+        // Mask value to cell size
         value &= this.cellMask;
 
         // Handle single word case (most common)
@@ -120,14 +147,18 @@ const BitBoard = class {
         }
         
         // Clear and set first word
-        const firstMask = ((1 << firstBits) - 1) << bitOffset;
+        const firstMask = (firstBits === 32 ? 0xFFFFFFFF : ((1 << firstBits) - 1)) << bitOffset;
         this.data[startWord] = (this.data[startWord] & ~firstMask) | 
-                              ((value & ((1 << firstBits) - 1)) << bitOffset);
+                               ((value & (firstBits === 32 ? 0xFFFFFFFF : ((1 << firstBits) - 1))) << bitOffset);
         
         // Clear and set second word
-        const secondMask = (1 << secondBits) - 1;
+        // Note: The second word always starts at bit 0 for the overflow portion,
+        // so no shifting is needed for the mask and value.
+        // If secondBits === 32, the mask covers all bits and the assignment overwrites the entire word.
+        // Otherwise, only the relevant bits are affected and bits outside the mask are preserved.
+        const secondMask = secondBits === 32 ? 0xFFFFFFFF : ((1 << secondBits) - 1);
         this.data[startWord + 1] = (this.data[startWord + 1] & ~secondMask) | 
-                                  (value >>> firstBits);
+                                   ((value >>> firstBits) & secondMask);
     }
 
     /** Bitwise AND with value */
@@ -165,23 +196,68 @@ const BitBoard = class {
     }
 
     /**
-     * Sets all cells to a given value - optimized version
-     * @param {number} value 
+     * Sets all cells to a given value.
+     * 
+     * Note: Filling with zero is fast (uses Array.fill), but filling with non-zero values is significantly slower,
+     * as it sets each cell individually. On large boards, this may impact performance.
+     * 
+     * @param {number} value
+     * @throws {TypeError} If value is not a non-negative integer
+     * @todo Benchmark size threshold where parallel fill becomes faster than single-threaded
+     * @note Could add support for filling with patterns in the future. (e.g., checkerboard, stripes)
      */
     fill(value = 0) {
         if (!Number.isInteger(value) || value < 0) {
             throw new TypeError("Value must be a non-negative integer");
         }
-        
         const clampedValue = value & this.cellMask;
-        
+
         // Fast path for zero
         if (clampedValue === 0) {
             this.data.fill(0);
             return;
         }
-        
-        // For non-zero values, fall back to cell-by-cell (could be optimized further)
+
+        const cellsPerWord = Math.floor(32 / this.bitsPerCell);
+        const fitsExactly = (this.bitsPerCell <= 32) && (32 % this.bitsPerCell === 0);
+
+        if (clampedValue === this.cellMask && fitsExactly) {
+            this.data.fill(0xFFFFFFFF);
+            return;
+        }
+
+        // Fast path for non-zero
+        let packedWord;
+        if (cellsPerWord > 0) {
+            // Lazy-load cache
+            if (!this._fillWordCache) this._fillWordCache = new Map();
+
+            const cacheKey = `${this.bitsPerCell}:${clampedValue}`;
+            if (this._fillWordCache.has(cacheKey)) {
+                packedWord = this._fillWordCache.get(cacheKey);
+            } else {
+                packedWord = 0;
+                for (let i = 0; i < cellsPerWord; i++) {
+                    packedWord |= (clampedValue << (i * this.bitsPerCell));
+                }
+                this._fillWordCache.set(cacheKey, packedWord);
+            }
+
+            this.data.fill(packedWord);
+
+            // Handle trailing cells that don't fill a word
+            const totalCells = this.rows * this.cols;
+            const totalWords = this.data.length;
+            const cellsFilled = cellsPerWord * totalWords;
+            for (let i = cellsFilled; i < totalCells; i++) {
+                const row = Math.floor(i / this.cols);
+                const col = i % this.cols;
+                this.set(row, col, clampedValue);
+            }
+            return;
+        }
+
+        // Fallback: cell by cell (slow path)
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 this.set(r, c, clampedValue);
@@ -219,6 +295,64 @@ const BitBoard = class {
                 this.set(r, c, 0);
             }
         }
+    }
+
+    /**
+     * Returns true if any cell differs between the two boards.
+     * @param {BitBoard} other 
+     * @returns {boolean}
+     */
+    hasDifferences(other) {
+        return !this.equals(other);
+    }
+
+    /**
+     * Compares this board to another for equality.
+     * @param {BitBoard} other 
+     * @returns {boolean} True if both boards are identical in size, configuration, and data.
+     */
+    equals(other) {
+        if (!(other instanceof BitBoard)) return false;
+        if (this.rows !== other.rows || 
+            this.cols !== other.cols || 
+            this.bitsPerCell !== other.bitsPerCell || 
+            this.safeMode !== other.safeMode) {
+            return false;
+        }
+        if (this.data.length !== other.data.length) return false;
+        for (let i = 0; i < this.data.length; i++) {
+            if (this.data[i] !== other.data[i]) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Computes the differences between this bitboard and another bitboard.
+     * Returns an array of objects representing the positions where the values differ.
+     * Each object contains the row (`r`), column (`c`), value in this bitboard (`a`), and value in the other bitboard (`b`).
+     *
+     * @param {BitBoard} other - The bitboard to compare against.
+     * @returns {Array<{r: number, c: number, a: number, b: number}>} Array of difference objects, or an empty array if the bitboards are equal.
+     */
+    diff(other) {
+        if (this.equals(other)) return [];
+        // no need to check instanceof here, as this.equals already does that
+        const differences = [];
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                const thisValue = this.get(r, c);
+                const otherValue = other.get(r, c);
+                if (thisValue !== otherValue) {
+                    differences.push({
+                        r: r,
+                        c: c,
+                        a: thisValue,
+                        b: otherValue
+                    });
+                }
+            }
+        }
+        return differences;
     }
 
     /**
@@ -281,6 +415,7 @@ const BitBoard = class {
      */
     toJSON() {
         return {
+            version: 1,
             rows: this.rows,
             cols: this.cols,
             bitsPerCell: this.bitsPerCell,

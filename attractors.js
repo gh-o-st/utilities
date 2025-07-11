@@ -1,4 +1,15 @@
+/**
+ * Base class for 3D attractors.
+ * @class
+ */
 export const Attractor = class {
+    /**
+     * @param {Object} [options={}]
+     * @param {string} [options.name='Attractor'] - Name of the attractor.
+     * @param {number} [options.dt=0.01] - Time step for integration.
+     * @param {number} [options.count=1000] - Number of states.
+     * @param {{x: number, y: number, z: number}} [options.seeds={x:1, y:0, z:0}] - Initial seed values.
+     */
     constructor({ name = 'Attractor', dt = 0.01, count = 1000, seeds = { x: 1, y: 0, z: 0 } } = {}) {
         this.name = name;
         this.dt = dt;
@@ -15,12 +26,25 @@ export const Attractor = class {
         }
     }
 
-    // Override this in subclasses
+    /**
+     * Compute derivatives for the attractor.
+     * Override in subclasses.
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z
+     * @returns {{x: number, y: number, z: number}}
+     * @throws {Error} If not implemented in subclass.
+     */
     derivatives(x, y, z) {
         throw new Error('derivatives() must be implemented by subclass');
     }
 
-    // Integration method: 'euler', 'rk2', 'rk4'
+    /**
+     * Update the attractor states using the specified integration method.
+     * @param {'euler'|'rk2'|'rk4'} [integration='euler'] - Integration method.
+     * @param {number} [dt=this.dt] - Time step.
+     * @returns {{x: number, y: number, z: number}} - First state after update.
+     */
     update(integration = 'euler', dt = this.dt) {
         const s = this.states;
         const n = s.x.length;
@@ -77,6 +101,11 @@ export const Attractor = class {
         return { x: s.x[0], y: s.y[0], z: s.z[0] };
     }
 
+    /**
+     * Randomize seed values slightly.
+     * @param {{x: number, y: number, z: number}} [seeds={x:1, y:0, z:0}]
+     * @returns {{x: number, y: number, z: number}}
+     */
     randomize(seeds = { x: 1, y: 0, z: 0 }) {
         const newSeeds = {
             x: seeds.x + (Math.random() - 0.5) * 0.01,
@@ -86,6 +115,10 @@ export const Attractor = class {
         return newSeeds;
     }
 
+    /**
+     * Reset all states to randomized values near the given state.
+     * @param {{x: number, y: number, z: number}} [state={x:1, y:0, z:0}]
+     */
     reset(state = { x: 1, y: 0, z: 0 }) {
         for (let i = 0; i < this.states.x.length; i++) {
             this.states.x[i] = this.randomize(state).x;
@@ -95,12 +128,26 @@ export const Attractor = class {
     }
 };
 
-// Thomas Attractor
+/**
+ * Thomas Attractor
+ * @class
+ * @extends Attractor
+ */
 export const ThomasAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.b=0.208186]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ b = 0.208186, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Thomas Attractor', dt, seeds, count });
         this.b = b;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: Math.sin(y) - this.b * x,
@@ -110,8 +157,24 @@ export const ThomasAttractor = class extends Attractor {
     }
 };
 
-// Langford Attractor (Aizawa)
+/**
+ * Langford Attractor (Aizawa)
+ * @class
+ * @extends Attractor
+ */
 export const LangfordAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=0.95]
+     * @param {number} [options.b=0.7]
+     * @param {number} [options.c=0.6]
+     * @param {number} [options.d=3.5]
+     * @param {number} [options.e=0.25]
+     * @param {number} [options.f=0.1]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 0.95, b = 0.7, c = 0.6, d = 3.5, e = 0.25, f = 0.1, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Langford Attractor (Aizawa)', dt, seeds, count });
         this.a = a;
@@ -121,6 +184,9 @@ export const LangfordAttractor = class extends Attractor {
         this.e = e;
         this.f = f;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: (z - this.b) * x - this.d * y,
@@ -130,14 +196,30 @@ export const LangfordAttractor = class extends Attractor {
     }
 };
 
-// Lorenz (1963) Attractor
+/**
+ * Lorenz (1963) Attractor
+ * @class
+ * @extends Attractor
+ */
 export const LorenzAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.sigma=10]
+     * @param {number} [options.rho=28]
+     * @param {number} [options.beta=8/3]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ sigma = 10, rho = 28, beta = (8 / 3), dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Lorenz-63 Attractor', dt, seeds, count });
         this.sigma = sigma;
         this.rho = rho;
         this.beta = beta;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: this.sigma * (y - x),
@@ -147,8 +229,22 @@ export const LorenzAttractor = class extends Attractor {
     }
 };
 
-// Lorenz (1983) Attractor
+/**
+ * Lorenz (1983) Attractor
+ * @class
+ * @extends Attractor
+ */
 export const Lorenz83Attractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=0.95]
+     * @param {number} [options.b=7.91]
+     * @param {number} [options.f=4.83]
+     * @param {number} [options.g=4.66]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 0.95, b = 7.91, f = 4.83, g = 4.66, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Lorenz-83 Attractor', dt, seeds, count });
         this.a = a;
@@ -157,6 +253,9 @@ export const Lorenz83Attractor = class extends Attractor {
         this.g = g;
     }
 
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: -this.a * x - y**2 - z**2 + this.a * this.f,
@@ -166,8 +265,23 @@ export const Lorenz83Attractor = class extends Attractor {
     }
 };
 
-// Dadras Attractor
+/**
+ * Dadras Attractor
+ * @class
+ * @extends Attractor
+ */
 export const DadrasAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=3]
+     * @param {number} [options.b=2.7]
+     * @param {number} [options.c=1.7]
+     * @param {number} [options.d=2]
+     * @param {number} [options.e=9]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 3, b = 2.7, c = 1.7, d = 2, e = 9, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Dadras Attractor', dt, seeds, count });
         this.a = a;
@@ -176,6 +290,9 @@ export const DadrasAttractor = class extends Attractor {
         this.d = d;
         this.e = e;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: y - this.a * x + this.b * y * z,
@@ -185,14 +302,30 @@ export const DadrasAttractor = class extends Attractor {
     }
 };
 
-// Chen-Lee Attractor
+/**
+ * Chen-Lee Attractor
+ * @class
+ * @extends Attractor
+ */
 export const ChenLeeAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=5]
+     * @param {number} [options.b=-10]
+     * @param {number} [options.c=-0.38]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 5, b = -10, c = -0.38, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Chen-Lee Attractor', dt, seeds, count });
         this.a = a;
         this.b = b;
         this.c = c;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: this.a * x - y * z,
@@ -202,14 +335,30 @@ export const ChenLeeAttractor = class extends Attractor {
     }
 };
 
-// Rössler Attractor
+/**
+ * Rössler Attractor
+ * @class
+ * @extends Attractor
+ */
 export const RosslerAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=0.2]
+     * @param {number} [options.b=0.2]
+     * @param {number} [options.c=5.7]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 0.2, b = 0.2, c = 5.7, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Rössler Attractor', dt, seeds, count });
         this.a = a;
         this.b = b;
         this.c = c;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: -(y + z),
@@ -219,12 +368,26 @@ export const RosslerAttractor = class extends Attractor {
     }
 };
 
-// Halvorsen Attractor
+/**
+ * Halvorsen Attractor
+ * @class
+ * @extends Attractor
+ */
 export const HalvorsenAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=1.89]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 1.89, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Halvorsen Attractor', dt, seeds, count });
         this.a = a;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: -this.a * x - 4 * y - 4 * z - y**2,
@@ -234,13 +397,28 @@ export const HalvorsenAttractor = class extends Attractor {
     }
 };
 
-// Rabinovich-Fabrikant Attractor
+/**
+ * Rabinovich-Fabrikant Attractor
+ * @class
+ * @extends Attractor
+ */
 export const RabinovichFabrikantAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=0.14]
+     * @param {number} [options.g=0.10]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 0.14, g = 0.10, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Rabinovich-Fabrikant Attractor', dt, seeds, count });
         this.a = a;
         this.g = g;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: y * (z - 1 + x**2) + this.g * x,
@@ -250,8 +428,24 @@ export const RabinovichFabrikantAttractor = class extends Attractor {
     }
 };
 
-// Three-Scroll Attractor (Chaotic Unified System)
+/**
+ * Three-Scroll Attractor (Chaotic Unified System)
+ * @class
+ * @extends Attractor
+ */
 export const ThreeScrollAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=32.48]
+     * @param {number} [options.b=45.84]
+     * @param {number} [options.c=1.18]
+     * @param {number} [options.d=0.13]
+     * @param {number} [options.e=0.57]
+     * @param {number} [options.f=14.7]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 32.48, b = 45.84, c = 1.18, d = 0.13, e = 0.57, f = 14.7, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Three-Scroll Attractor', dt, seeds, count });
         this.a = a;
@@ -261,6 +455,9 @@ export const ThreeScrollAttractor = class extends Attractor {
         this.e = e;
         this.f = f;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: this.a * (y - x) + this.d * x * z,
@@ -270,13 +467,28 @@ export const ThreeScrollAttractor = class extends Attractor {
     }
 };
 
-// Sprott Attractor
+/**
+ * Sprott Attractor
+ * @class
+ * @extends Attractor
+ */
 export const SprottAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=2.07]
+     * @param {number} [options.b=1.79]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 2.07, b = 1.79, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Sprott Attractor', dt, seeds, count });
         this.a = a;
         this.b = b;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: y + this.a * x * y + x * z,
@@ -286,14 +498,30 @@ export const SprottAttractor = class extends Attractor {
     }
 };
 
-// Four Wing Attractor
+/**
+ * Four Wing Attractor
+ * @class
+ * @extends Attractor
+ */
 export const FourWingAttractor = class extends Attractor {
+    /**
+     * @param {Object} [options={}]
+     * @param {number} [options.a=0.2]
+     * @param {number} [options.b=0.01]
+     * @param {number} [options.c=-0.4]
+     * @param {number} [options.dt=0.01]
+     * @param {number} [options.count=1000]
+     * @param {{x: number, y: number, z: number}} [options.seeds]
+     */
     constructor({ a = 0.2, b = 0.01, c = -0.4, dt = 0.01, count = 1000, seeds } = {}) {
         super({ name: 'Four Wing Attractor', dt, seeds, count });
         this.a = a;
         this.b = b;
         this.c = c;
     }
+    /**
+     * @inheritdoc
+     */
     derivatives(x, y, z) {
         return {
             x: this.a * x + y * z,

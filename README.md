@@ -4,6 +4,10 @@ This repository contains a collection of JavaScript utility modules designed to 
 
 ## Included Utilities
 
+- **FPSMonitor**  
+  [fps.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/fps.js)  
+  Quick and easy fps (and optionally, memory) monitor
+
 - **Bitboard Implementation**  
   [bitboard.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/bitboard.js)  
   Efficient bitwise board representation for games and simulations.
@@ -11,6 +15,10 @@ This repository contains a collection of JavaScript utility modules designed to 
 - **Canvas Manager**  
   [canvasmanager.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/canvasmanager.js)  
   Simplifies canvas setup, resizing, and drawing operations.
+
+- **ShaderBuilder**  
+  [shaderbuilder.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/shaderbuilder.js)  
+  Simplifies and standardizes compiling shader programs in webgl (no webgpu support yet)
 
 - **Particle System**  
   [particle.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/particle.js)  
@@ -24,6 +32,9 @@ This repository contains a collection of JavaScript utility modules designed to 
   [attractors.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/attractors.js)  
   Cannonically correct chaotic system implementations.
 
+- **Fizzix**  
+  [fizzix.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/fizzix.js)  
+  Basic physics calculations and force accumulation. Includes SPH for fluid dynamics.
 
 - **Color Utility**  
   [color.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/color.js)  

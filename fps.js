@@ -1,4 +1,15 @@
+/**
+ * FPSCounter displays frames per second and memory usage in a fixed overlay.
+ * @example
+ * const fps = new FPSCounter(); // Adds overlay to document.body
+ * const fps = new FPSCounter(document.getElementById('container'));
+ */
 export default class FPSCounter {
+    /**
+     * Creates an FPSCounter instance and attaches it to the given container.
+     * @param {HTMLElement} [container=document.body] - The DOM element to attach the counter to.
+     * @throws {Error} If container is not a valid DOM element.
+     */
     constructor(container = document.body) {
         if (!(container instanceof HTMLElement)) {
             throw new Error('Container must be a valid DOM element.');
@@ -43,9 +54,13 @@ export default class FPSCounter {
         this.animate();
     }
 
+    /**
+     * Internal animation loop that updates FPS and memory usage.
+     * @private
+     */
     animate() {
         const currentTime = performance.now();
-        const deltaTime = currentTime - this.lastTime;
+        const dt = currentTime - this.lastTime;
 
         this.frameCount++;
         this.framesSinceLastUpdate++;
