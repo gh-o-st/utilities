@@ -1,15 +1,44 @@
 export default class FPSCounter {
-    constructor() {
+    constructor(container = document.body) {
+        if (!(container instanceof HTMLElement)) {
+            throw new Error('Container must be a valid DOM element.');
+        }
+
         this.fps = 0;
         this.frameCount = 0;
         this.lastTime = performance.now();
-        this.fpsInterval = 1000; 
+        this.fpsInterval = 1000;
         this.lastFpsUpdate = this.lastTime;
         this.framesSinceLastUpdate = 0;
 
-        this.frameCountElement = document.getElementById('frame-count');
-        this.fpsElement = document.getElementById('fps-value');
-        this.memElement = document.getElementById('memory-usage');
+        this.container = container;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'fps-counter';
+        wrapper.style.cssText = `    position: fixed;
+            top: 0;
+            left: 0;
+            background: rgba(0,0,0,0.7);
+            color: lime;
+            font: 12px monospace;
+            padding: 5px;
+            z-index: 9999;`;
+
+        this.frameCountElement = document.createElement('div');
+        this.frameCountElement.className = 'fps-frame-count';
+        wrapper.appendChild(this.frameCountElement);
+
+        this.fpsElement = document.createElement('div');
+        this.fpsElement.className = 'fps-value';
+        wrapper.appendChild(this.fpsElement);
+
+        this.memElement = document.createElement('div');
+        this.memElement.className = 'fps-memory-usage';
+        this.memElement.style.cssText = `    cursor: help;`;
+        this.memElement.title = 'Only works in Chrome-ish browsers';
+        wrapper.appendChild(this.memElement);
+
+        this.container.appendChild(wrapper);
 
         this.animate();
     }
@@ -36,7 +65,7 @@ export default class FPSCounter {
             }
         }
 
-        this.frameCountElement.textContent = this.frameCount;
+        this.frameCountElement.textContent = `Frames: ${this.frameCount}`;
 
         this.lastTime = currentTime;
         requestAnimationFrame(() => this.animate());
