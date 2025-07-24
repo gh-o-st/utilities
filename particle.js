@@ -21,20 +21,20 @@ class ParticleSystem {
          */
         this.count = 0;
         /**
-         * Particle positions (x, y for each particle).
+         * Particle positions (x, y, z for each particle).
          * @type {Float32Array}
          */
-        this.pos = new Float32Array(maxParticles * 2);
+        this.pos = new Float32Array(maxParticles * 3);
         /**
-         * Previous positions for Verlet integration (x, y for each particle).
+         * Previous positions for Verlet integration (x, y, z for each particle).
          * @type {Float32Array}
          */
-        this.prevPos = new Float32Array(maxParticles * 2);
+        this.prevPos = new Float32Array(maxParticles * 3);
         /**
-         * Particle accelerations (x, y for each particle).
+         * Particle accelerations (x, y, z for each particle).
          * @type {Float32Array}
          */
-        this.acc = new Float32Array(maxParticles * 2);
+        this.acc = new Float32Array(maxParticles * 3);
         /**
          * Particle colors (r, g, b, a for each particle).
          * @type {Float32Array}
@@ -112,8 +112,10 @@ class ParticleSystem {
      * @param {object} props Particle properties
      * @param {number} props.x Initial x position
      * @param {number} props.y Initial y position
+     * @param {number} [props.z=0] Initial z position
      * @param {number} [props.vx=0] Initial x velocity
      * @param {number} [props.vy=0] Initial y velocity
+     * @param {number} [props.vz=0] Initial z velocity
      * @param {number} [props.r=1] Red color component (0-1)
      * @param {number} [props.g=1] Green color component (0-1)
      * @param {number} [props.b=1] Blue color component (0-1)
@@ -130,17 +132,20 @@ class ParticleSystem {
      * @param {number} [props.angularVelocity=0] Initial angular velocity
      * @param {number} [props.angularAcceleration=0] Initial angular acceleration
      */
-    emit({ x, y, vx = 0, vy = 0, r = 1, g = 1, b = 1, a = 1, lifespan = Infinity, size = 1, density = 0, pressure = 0, mass = 1, friction = 0.1, elasticity = 0.3, integrity = 100, rotation = 0, angularVelocity = 0, angularAcceleration = 0 }) {
+    emit({ x, y, z = 0, vx = 0, vy = 0, vz = 0, r = 1, g = 1, b = 1, a = 1, lifespan = Infinity, size = 1, density = 0, pressure = 0, mass = 1, friction = 0.1, elasticity = 0.3, integrity = 100, rotation = 0, angularVelocity = 0, angularAcceleration = 0 }) {
         if (this.count >= this.maxParticles) return;
         const i = this.count;
-        const i2 = i * 2;
+        const i3 = i * 3;
         const i4 = i * 4;
-        this.pos[i2] = x;
-        this.pos[i2 + 1] = y;
-        this.prevPos[i2] = x - vx;
-        this.prevPos[i2 + 1] = y - vy;
-        this.acc[i2] = 0;
-        this.acc[i2 + 1] = 0;
+        this.pos[i3] = x;
+        this.pos[i3 + 1] = y;
+        this.pos[i3 + 2] = z;
+        this.prevPos[i3] = x - vx;
+        this.prevPos[i3 + 1] = y - vy;
+        this.prevPos[i3 + 2] = z - vz;
+        this.acc[i3] = 0;
+        this.acc[i3 + 1] = 0;
+        this.acc[i3 + 2] = 0;
         this.color[i4] = r;
         this.color[i4 + 1] = g;
         this.color[i4 + 2] = b;
@@ -182,16 +187,19 @@ class ParticleSystem {
         this.count--;
         if (index === this.count) return;
         const lastI = this.count;
-        const i2 = index * 2;
-        const lastI2 = lastI * 2;
+        const i3 = index * 3;
+        const lastI3 = lastI * 3;
         const i4 = index * 4;
         const lastI4 = lastI * 4;
-        [this.pos[i2], this.pos[lastI2]] = [this.pos[lastI2], this.pos[i2]];
-        [this.pos[i2 + 1], this.pos[lastI2 + 1]] = [this.pos[lastI2 + 1], this.pos[i2 + 1]];
-        [this.prevPos[i2], this.prevPos[lastI2]] = [this.prevPos[lastI2], this.prevPos[i2]];
-        [this.prevPos[i2 + 1], this.prevPos[lastI2 + 1]] = [this.prevPos[lastI2 + 1], this.prevPos[i2 + 1]];
-        [this.acc[i2], this.acc[lastI2]] = [this.acc[lastI2], this.acc[i2]];
-        [this.acc[i2 + 1], this.acc[lastI2 + 1]] = [this.acc[lastI2 + 1], this.acc[i2 + 1]];
+        [this.pos[i3], this.pos[lastI3]] = [this.pos[lastI3], this.pos[i3]];
+        [this.pos[i3 + 1], this.pos[lastI3 + 1]] = [this.pos[lastI3 + 1], this.pos[i3 + 1]];
+        [this.pos[i3 + 2], this.pos[lastI3 + 2]] = [this.pos[lastI3 + 2], this.pos[i3 + 2]];
+        [this.prevPos[i3], this.prevPos[lastI3]] = [this.prevPos[lastI3], this.prevPos[i3]];
+        [this.prevPos[i3 + 1], this.prevPos[lastI3 + 1]] = [this.prevPos[lastI3 + 1], this.prevPos[i3 + 1]];
+        [this.prevPos[i3 + 2], this.prevPos[lastI3 + 2]] = [this.prevPos[lastI3 + 2], this.prevPos[i3 + 2]];
+        [this.acc[i3], this.acc[lastI3]] = [this.acc[lastI3], this.acc[i3]];
+        [this.acc[i3 + 1], this.acc[lastI3 + 1]] = [this.acc[lastI3 + 1], this.acc[i3 + 1]];
+        [this.acc[i3 + 2], this.acc[lastI3 + 2]] = [this.acc[lastI3 + 2], this.acc[i3 + 2]];
         [this.color[i4], this.color[lastI4]] = [this.color[lastI4], this.color[i4]];
         [this.color[i4 + 1], this.color[lastI4 + 1]] = [this.color[lastI4 + 1], this.color[i4 + 1]];
         [this.color[i4 + 2], this.color[lastI4 + 2]] = [this.color[lastI4 + 2], this.color[i4 + 2]];
