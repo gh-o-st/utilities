@@ -24,10 +24,20 @@ function validate(dim, name) {
 /**
  * Attaches canvas manager to a canvas element.
  * @param {HTMLCanvasElement|string} elementOrId - Canvas element or ID.
+ * @param {Object} [config] - Optional configuration object.
+ * @param {string|number} [config.width='full'] - Initial width or 'full'.
+ * @param {string|number} [config.height='full'] - Initial height or 'full'.
+ * @param {'2d'|'webgl'|'webgl2'} [config.context='2d'] - Context type.
+ * @param {Object} [config.contextOptions={}] - Context creation options.
+ * @param {boolean} [config.autoInit=false] - Whether to automatically initialize context and size.
+ * @param {boolean} [config.autoListen=false] - Whether to automatically listen for resize events.
+ * @param {number} [config.resizeDebounce=250] - Debounce time for resize events (ms).
+ * @param {boolean} [config.listenDpr=false] - Whether to listen for device pixel ratio changes.
+ * @param {number} [config.dprInterval=250] - Interval for DPR checking (ms).
  * @returns {CanvasController} Canvas controller instance.
  * @throws {TypeError} If the argument is invalid.
  */
-function attach(elementOrId) {
+function attach(elementOrId, config = {}) {
     if (!elementOrId) {
         throw new TypeError('attach requires a canvas element or string ID');
     }
@@ -40,6 +50,19 @@ function attach(elementOrId) {
         throw new TypeError('attach expects a canvas element or string ID');
     }
 
+    // Extract config options with defaults
+    const {
+        width: configWidth = 'full',
+        height: configHeight = 'full',
+        context: contextType = '2d',
+        contextOptions = {},
+        autoInit = false,
+        autoListen = false,
+        resizeDebounce = 250,
+        listenDpr = false,
+        dprInterval = 250 
+    } = config;
+
     /** @type {CanvasRenderingContext2D|WebGLRenderingContext|WebGL2RenderingContext|null} */
     let ctx = null;
     let width = 0;
@@ -47,7 +70,7 @@ function attach(elementOrId) {
     let dpr = window.devicePixelRatio || 1;
     let resizeTimeout = null;
     let resizeHandler = null;
-    let dprInterval = null;
+    let dprIntervalID = null;
     let isDestroyed = false;
 
     /**
@@ -61,6 +84,7 @@ function attach(elementOrId) {
     }
 
     /**
+     * Canvas controller interface.
      * @typedef {Object} CanvasController
      * @property {function(string|number=, string|number=): CanvasController} resize - Resize the canvas.
      * @property {function(string=, Object=): CanvasRenderingContext2D | WebGLRenderingContext | WebGL2RenderingContext} context - Get the canvas context.
@@ -110,10 +134,6 @@ function attach(elementOrId) {
          * @returns {CanvasController}
          */
         resize(w = 'full', h = 'full', clear = true) {
-            // prevent any jankiness from changing the method signature for edgelord cases
-            if (clear === undefined || clear === null || typeof clear !== 'boolean') {
-                clear = true;
-            }
             checkDestroyed();
             width = validate(w, 'width');
             height = validate(h, 'height');
@@ -128,7 +148,6 @@ function attach(elementOrId) {
 
             return controller;
         },
-
 
         /**
          * Get the canvas context.
@@ -185,12 +204,12 @@ function attach(elementOrId) {
             }
 
             if (signal === 'dpr') {
-                if (dprInterval) {
-                    clearInterval(dprInterval);
+                if (dprIntervalID) {
+                    clearInterval(dprIntervalID);
                 }
-                dprInterval = setInterval(() => {
+                dprIntervalID = setInterval(() => {
                     if (isDestroyed) {
-                        clearInterval(dprInterval);
+                        clearInterval(dprIntervalID);
                         return;
                     }
                     const current = window.devicePixelRatio || 1;
@@ -200,6 +219,37 @@ function attach(elementOrId) {
                     }
                 }, time);
             }
+
+            return controller;
+        },
+
+        /**
+         * Initialize the canvas with specified context and dimensions.
+         * @param {string|number} [w='full'] - Width or 'full'.
+         * @param {string|number} [h='full'] - Height or 'full'.
+         * @param {'2d'|'webgl'|'webgl2'} [type='2d'] - Context type.
+         * @param {Object} [options={}] - Context options.
+         * @returns {CanvasController} - The canvas controller instance.
+         * @throws {TypeError} If dimensions are invalid or context type is unsupported.
+         * @throws {Error} If context cannot be obtained.
+         */
+        initWithContext(w = 'full', h = 'full', type = '2d', options = {}) {
+            checkDestroyed();
+            if (type !== '2d' && type !== 'webgl' && type !== 'webgl2') {
+                throw new TypeError(`Unsupported context type: ${type}`);
+            }
+            width = validate(w, 'width');
+            height = validate(h, 'height');
+            dpr = window.devicePixelRatio || 1;
+            el.width = width * dpr;
+            el.height = height * dpr;
+            el.style.width = `${width}px`;
+            el.style.height = `${height}px`;
+            ctx = el.getContext(type, options);
+            if (!ctx) {
+                throw new Error(`Failed to get '${type}' context`);
+            }
+            controller.applyTransformAndClear(true);
             return controller;
         },
 
@@ -216,9 +266,9 @@ function attach(elementOrId) {
                 window.removeEventListener('resize', resizeHandler);
                 resizeHandler = null;
             }
-            if (dprInterval) {
-                clearInterval(dprInterval);
-                dprInterval = null;
+            if (dprIntervalID) {
+                clearInterval(dprIntervalID);
+                dprIntervalID = null;
             }
             ctx = null;
         },
@@ -229,8 +279,20 @@ function attach(elementOrId) {
         get width() { return width; },
         get height() { return height; },
         get dpr() { return dpr; },
-        get isDestroyed() { return isDestroyed; }
+        get isDestroyed() { return isDestroyed; },
     };
+
+    if (autoInit) {
+        controller.initWithContext(configWidth, configHeight, contextType, contextOptions);
+    }
+
+    if (autoListen) {
+        controller.listen('resize', resizeDebounce);
+    }
+
+    if (listenDpr) {
+        controller.listen('dpr', dprInterval);
+    }
 
     return controller;
 }
