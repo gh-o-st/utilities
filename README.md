@@ -2,6 +2,16 @@
 
 This repository contains a collection of JavaScript utility modules designed to simplify and streamline my own creative coding projects.
 
+## Usage
+
+To use any utility in your own projects, just import the desired module via JSDelivr:
+
+```html
+<script type="module">
+    import VecMath from 'https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/vecmath.js';
+</script>
+```
+
 ## Included Utilities
 
 - **FPSMonitor**  
@@ -40,14 +50,9 @@ This repository contains a collection of JavaScript utility modules designed to 
   [color.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/color.js)  
   Full featured color manipulation, generation, and identification library.
 
-
-## Usage
-
-To use any utility in your own projects, just import the desired module via JSDelivr:
-
-```html
-<script src="https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/bitboard.js"></script>
-```
+- **Vector Math Utility**
+  [vecmath.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/vecmath.js)
+  Efficient and comprehensive vector math operations for creative coding, graphics, and simulations.
 
 ## License
 
