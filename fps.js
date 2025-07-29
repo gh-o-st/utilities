@@ -125,4 +125,14 @@ export default class FPSCounter {
             this.memElement.textContent = `Heap: ${usedMB} / ${totalMB} MB`;
         }
     }
+
+    /**
+     * Alias for update() since people seem to think it ought to exist
+     * @param {number} fps - The current FPS value to display.
+     * @param {number} frameCount - The current frame count to display.
+     */
+    tick(fps, framecount) {
+        this.update(fps, framecount);
+    }
+        
 }
