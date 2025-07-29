@@ -277,6 +277,75 @@ class ParticleSystem {
     }
 
     /**
+     * Returns the velocity vector [x, y, z] for the particle at the given index.
+     * @param {number} index - The index of the particle.
+     * @returns {number[]} The velocity vector as an array of three numbers [vx, vy, vz].
+     */
+    getVelocity(index) {
+        const i3 = index * 3;
+        return [this.vel[i3], this.vel[i3 + 1], this.vel[i3 + 2]];
+    }
+
+    /**
+     * Returns the angular velocity at the specified index.
+     *
+     * @param {number} index - The index of the angular velocity to retrieve.
+     * @returns {number} The angular velocity at the given index.
+     */
+    getAngularVelocity(index) {
+        return this.angularVelocity[index];
+    }
+
+    /**
+     * Returns the angular acceleration for the specified index.
+     *
+     * @param {number} index - The index of the angular acceleration to retrieve.
+     * @returns {number} The angular acceleration at the given index.
+     */
+    getAngularAcceleration(index) {
+        return this.angularAcceleration[index];
+    }
+
+    /**
+     * Sets the velocity of a particle at the specified index.
+     * Also updates the previous velocity for Verlet integration.
+     *
+     * @param {number} index - The index of the particle to update.
+     * @param {number} vx - The velocity component along the X axis.
+     * @param {number} vy - The velocity component along the Y axis.
+     * @param {number} vz - The velocity component along the Z axis.
+     */
+    setVelocity(index, vx, vy, vz) {
+        const i3 = index * 3;
+        this.vel[i3] = vx;
+        this.vel[i3 + 1] = vy;
+        this.vel[i3 + 2] = vz;
+        this.velPrev[i3] = vx; // Update previous velocity for Verlet integration
+        this.velPrev[i3 + 1] = vy;
+        this.velPrev[i3 + 2] = vz;
+    }
+
+    /**
+     * Sets the angular velocity for a specific particle.
+     *
+     * @param {number} index - The index of the particle whose angular velocity is to be set.
+     * @param {number} value - The new angular velocity value to assign.
+     */
+    setAngularVelocity(index, value) {
+        this.angularVelocity[index] = value;
+    }
+
+    /**
+     * Sets the angular acceleration for a particle at the specified index.
+     *
+     * @param {number} index - The index of the particle to update.
+     * @param {number} value - The new angular acceleration value to set.
+     */
+    setAngularAcceleration(index, value) {
+        this.angularAcceleration[index] = value;
+    }
+
+    /**
      * Deactivates a particle by swapping it with the last active particle. This keeps the active pool contiguous for efficient iteration.
      * @param {number} index Index of the particle to deactivate.
      */
