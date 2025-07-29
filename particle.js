@@ -359,6 +359,9 @@ class ParticleSystem {
         const lastI3 = lastI * 3;
         const i4 = index * 4;
         const lastI4 = lastI * 4;
+
+        // Mark the particle as inactive
+        this.active[index] = 0;
         
         // Swap position arrays
         [this.pos[i3], this.pos[lastI3]] = [this.pos[lastI3], this.pos[i3]];
