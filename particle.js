@@ -31,6 +31,16 @@ class ParticleSystem {
          */
         this.prevPos = new Float32Array(maxParticles * 3);
         /**
+         * Particle velocities (vx, vy, vz for each particle). Optional, for explicit velocity-based integration.
+         * @type {Float32Array}
+         */
+        this.vel = new Float32Array(maxParticles * 3);
+        /**
+         * Previous velocities (for some integration schemes).
+         * @type {Float32Array}
+         */
+        this.velPrev = new Float32Array(maxParticles * 3);
+        /**
          * Particle accelerations (x, y, z for each particle).
          * @type {Float32Array}
          */
@@ -132,7 +142,7 @@ class ParticleSystem {
      * @param {number} [props.angularVelocity=0] Initial angular velocity
      * @param {number} [props.angularAcceleration=0] Initial angular acceleration
      */
-    emit({ x, y, z = 0, vx = 0, vy = 0, vz = 0, r = 1, g = 1, b = 1, a = 1, lifespan = Infinity, size = 1, density = 0, pressure = 0, mass = 1, friction = 0.1, elasticity = 0.3, integrity = 100, rotation = 0, angularVelocity = 0, angularAcceleration = 0 }) {
+    emit({ x, y, z = 0, vx = 0, vy = 0, vz = 0, r = 1, g = 1, b = 1, a = 1, lifespan = Infinity, size = 1, density = 0, pressure = 0, mass = 1, friction = 0.1, elasticity = 0.3, integrity = 100, rotation = 0, angularVelocity = 0, angularAcceleration = 0, vel = undefined, velPrev = undefined }) {
         if (this.count >= this.maxParticles) return;
         const i = this.count;
         const i3 = i * 3;
@@ -143,6 +153,24 @@ class ParticleSystem {
         this.prevPos[i3] = x - vx;
         this.prevPos[i3 + 1] = y - vy;
         this.prevPos[i3 + 2] = z - vz;
+        if (vel && Array.isArray(vel) && vel.length === 3) {
+            this.vel[i3] = vel[0];
+            this.vel[i3 + 1] = vel[1];
+            this.vel[i3 + 2] = vel[2];
+        } else {
+            this.vel[i3] = vx;
+            this.vel[i3 + 1] = vy;
+            this.vel[i3 + 2] = vz;
+        }
+        if (velPrev && Array.isArray(velPrev) && velPrev.length === 3) {
+            this.velPrev[i3] = velPrev[0];
+            this.velPrev[i3 + 1] = velPrev[1];
+            this.velPrev[i3 + 2] = velPrev[2];
+        } else {
+            this.velPrev[i3] = this.vel[i3];
+            this.velPrev[i3 + 1] = this.vel[i3 + 1];
+            this.velPrev[i3 + 2] = this.vel[i3 + 2];
+        }
         this.acc[i3] = 0;
         this.acc[i3 + 1] = 0;
         this.acc[i3 + 2] = 0;
@@ -166,8 +194,10 @@ class ParticleSystem {
         this.count++;
     }
 
+
     /**
-     * Updates the life of all active particles. Particles that exceed their lifespan are deactivated and compacted.
+     * Updates the state of all particles.
+     * Increments the life of each particle and kills particles that have exceeded their lifespan.
      */
     update() {
         for (let i = this.count - 1; i >= 0; i--) {
@@ -176,6 +206,52 @@ class ParticleSystem {
                 this.kill(i);
             }
         }
+    }
+
+    /**
+     * Returns the 3D position of a particle at the specified index.
+     *
+     * @param {number} index - The index of the particle.
+     * @returns {number[]} An array containing the x, y, and z coordinates of the particle.
+     */
+    getPosition(index) {
+        const i3 = index * 3;
+        return [this.pos[i3], this.pos[i3 + 1], this.pos[i3 + 2]];
+    }
+
+    /**
+     * Sets the position of a particle at the specified index.
+     *
+     * @param {number} index - The index of the particle to update.
+     * @param {number} x - The x-coordinate to set.
+     * @param {number} y - The y-coordinate to set.
+     * @param {number} z - The z-coordinate to set.
+     */
+    setAcceleration(index, ax, ay, az) {
+        const i3 = index * 3;
+        this.acc[i3] = ax;
+        this.acc[i3 + 1] = ay;
+        this.acc[i3 + 2] = az;
+    }
+
+    /**
+     * Returns the rotation value at the specified index.
+     *
+     * @param {number} index - The index of the rotation to retrieve.
+     * @returns {*} The rotation value at the given index.
+     */
+    getRotation(index) {
+        return this.rotation[index];
+    }
+
+    /**
+     * Sets the rotation value at the specified index.
+     *
+     * @param {number} index - The index of the rotation array to set.
+     * @param {number} value - The rotation value to assign.
+     */
+    setRotation(index, value) {
+        this.rotation[index] = value;
     }
 
     /**
@@ -216,6 +292,12 @@ class ParticleSystem {
         [this.rotation[index], this.rotation[lastI]] = [this.rotation[lastI], this.rotation[index]];
         [this.angularVelocity[index], this.angularVelocity[lastI]] = [this.angularVelocity[lastI], this.angularVelocity[index]];
         [this.angularAcceleration[index], this.angularAcceleration[lastI]] = [this.angularAcceleration[lastI], this.angularAcceleration[index]];
+        [this.vel[i3], this.vel[lastI3]] = [this.vel[lastI3], this.vel[i3]];
+        [this.vel[i3+1], this.vel[lastI3+1]] = [this.vel[lastI3+1], this.vel[i3+1]];
+        [this.vel[i3+2], this.vel[lastI3+2]] = [this.vel[lastI3+2], this.vel[i3+2]];
+        [this.velPrev[i3], this.velPrev[lastI3]] = [this.velPrev[lastI3], this.velPrev[i3]];
+        [this.velPrev[i3+1], this.velPrev[lastI3+1]] = [this.velPrev[lastI3+1], this.velPrev[i3+1]];
+        [this.velPrev[i3+2], this.velPrev[lastI3+2]] = [this.velPrev[lastI3+2], this.velPrev[i3+2]];
     }
 }
 
