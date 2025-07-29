@@ -8,7 +8,7 @@ To use any utility in your own projects, just import the desired module via JSDe
 
 ```html
 <script type="module">
-    import VecMath from 'https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/vecmath.js';
+    import VecMath from 'https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/vectormath.js';
 </script>
 ```
 
