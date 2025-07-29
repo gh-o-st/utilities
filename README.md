@@ -51,7 +51,7 @@ To use any utility in your own projects, just import the desired module via JSDe
   Full featured color manipulation, generation, and identification library.
 
 - **Vector Math Utility**  
-  [vecmath.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/vecmath.js)  
+  [vectormath.js](https://cdn.jsdelivr.net/gh/gh-o-st/utilities@stable/vectormath.js)  
   Efficient and comprehensive vector math operations for creative coding, graphics, and simulations.
 
 ## License
