@@ -3,7 +3,7 @@
  * Provides methods for SPH fluid simulation, force application, integration, and boundary constraints.
  * @namespace Fizzix
  */
-const Fizzix = {
+export default class Fizzix {
 
     /**
      * Builds a spatial grid for fast neighbor search.
@@ -48,7 +48,7 @@ const Fizzix = {
             if (grid[idx]) grid[idx].push(i);
         }
         return { grid, cols, rows, depths, cellSize, bounds };
-    },
+    }
 
     /**
      * Computes density and pressure for each particle (SPH).
@@ -115,7 +115,7 @@ const Fizzix = {
             particles.density[i] = density;
             particles.pressure[i] = k * (density - restDensity);
         }
-    },
+    }
 
     /**
      * Applies SPH pressure and viscosity forces.
@@ -211,7 +211,8 @@ const Fizzix = {
             particles.acc[i3 + 1] += fy;
             particles.acc[i3 + 2] += fz;
         }
-    },
+    }
+
     /**
      * Applies a force to a particle.
      * @param {ParticleSystem} particles - The particle system.
@@ -223,7 +224,7 @@ const Fizzix = {
         particles.acc[i3] += force.x;
         particles.acc[i3 + 1] += force.y;
         particles.acc[i3 + 2] += (typeof force.z === 'number' ? force.z : 0);
-    },
+    }
 
     /**
      * Applies an arbitrary force field to all particles.
@@ -244,7 +245,7 @@ const Fizzix = {
                 particles.acc[i3 + 2] += force.z || 0;
             }
         }
-    },
+    }
 
     /**
      * Updates particle physics using Verlet integration.
@@ -279,7 +280,7 @@ const Fizzix = {
             particles.acc[i3 + 1] = 0;
             particles.acc[i3 + 2] = 0;
         }
-    },
+    }
 
     /**
      * Constrains particles to a boundary.
@@ -325,7 +326,7 @@ const Fizzix = {
                 }
             }
         }
-    },
+    }
 
     /**
      * Updates particle positions using Verlet integration.
@@ -362,5 +363,3 @@ const Fizzix = {
         }
     }
 };
-
-export default Fizzix;
