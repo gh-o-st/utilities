@@ -93,11 +93,25 @@ export default class FPSCounter {
             this.memElement = null;
             this.graphCanvases = [];
         } else if (this.widget) {
-            // Widget mode: find and connect to widget elements
-            this.widgets = Array.from(document.querySelectorAll('[data-fps-widget]'));
-            this.fpsElements = Array.from(document.querySelectorAll('[data-fps-value]'));
-            this.memoryElements = Array.from(document.querySelectorAll('[data-fps-memory]'));
-            this.graphCanvases = Array.from(document.querySelectorAll('[data-fps-graph]'));
+            // Widget mode: inject markup and use references
+            const widget = document.createElement('div');
+            widget.className = 'fps-widget';
+            widget.setAttribute('data-fps-widget', '');
+            widget.innerHTML = `<div class="fps-widget-header">
+                    <h4 class="fps-widget-title">Performance</h4>
+                    <div class="fps-widget-arrow">›</div>
+                </div>
+                <h5 class="fps-widget-total" data-fps-value>80<span>FPS</span></h5>
+                <h5 class="fps-widget-memory hidden" data-fps-memory>2.6<span>MB</span></h5>
+                <div class="fps-widget-graph-container">
+                    <canvas class="fps-widget-graph" data-fps-graph style="width:100px;height:40px;"></canvas>
+                </div>`;
+            this.container.appendChild(widget);
+
+            this.widgets = [widget];
+            this.fpsElements = [widget.querySelector('[data-fps-value]')];
+            this.memoryElements = [widget.querySelector('[data-fps-memory]')];
+            this.graphCanvases = [widget.querySelector('[data-fps-graph]')];
 
             // Initialize graphs
             this.initializeGraphs();
@@ -112,11 +126,10 @@ export default class FPSCounter {
                 });
             }
 
-            this.widgets.forEach(widget => {
-                let posIdx = 0;
-                const arrow = widget.querySelector('.fps-widget-arrow');
-                if (!arrow) return;
-                // Set initial position and arrow
+            // Position and arrow logic
+            let posIdx = 0;
+            const arrow = widget.querySelector('.fps-widget-arrow');
+            if (arrow) {
                 const setPosition = () => {
                     widget.style.position = 'fixed';
                     widget.style.top = '';
@@ -130,7 +143,6 @@ export default class FPSCounter {
                     arrow.style.transform = `rotate(${pos.arrow}deg)`;
                 };
                 setPosition();
-
 
                 const animateMove = (from, to, duration = 600) => {
                     const start = performance.now();
@@ -162,7 +174,7 @@ export default class FPSCounter {
                     const to = { ...positions[posIdx] };
                     animateMove(from, to);
                 });
-            });
+            }
         } else {
             const wrapper = document.createElement('div');
             wrapper.className = 'fps-counter';
