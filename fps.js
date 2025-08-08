@@ -12,6 +12,121 @@ const positions = [
  */
 export default class FPSCounter {
     /**
+     * Ensures the FPS widget styles are injected into the document head (only once per page).
+     */
+    static _ensureWidgetStyles() {
+        if (document.getElementById('fpscounter-widget-style')) return;
+        const style = document.createElement('style');
+        style.id = 'fpscounter-widget-style';
+        style.textContent = `.fps-widget {
+            aspect-ratio: 1 / 1;
+            width: 160px;
+            height: 160px;
+            flex: 0 0 auto;
+            border-radius: 18px;
+            padding: 16px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-start;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+            transition: box-shadow 0.3s ease;
+            position: fixed;
+        }
+        .fps-widget {
+            background: #fff;
+            color: #222;
+        }
+        @media (prefers-color-scheme: dark) {
+            .fps-widget {
+                background: #0e1b1f;
+                color: #a9c3c9;
+            }
+        }
+        .fps-widget:hover {
+            box-shadow: 0 8px 14px rgba(0, 0, 0, 0.45);
+        }
+        .fps-widget.dark:hover {
+            box-shadow: 0 10px 16px rgba(0, 0, 0, 0.6);
+        }
+        .fps-widget-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .fps-widget-title {
+            font-weight: 700;
+            text-transform: uppercase;
+            margin: 0;
+            font-size: 11px;
+            user-select: none;
+        }
+        .fps-widget-arrow {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .fps-widget-arrow {
+            background: #e8e8e8;
+            color: #666;
+        }
+        @media (prefers-color-scheme: dark) {
+            .fps-widget-arrow {
+                background: rgba(169, 195, 201, 0.2);
+                color: #a9c3c9;
+            }
+        }
+        .fps-widget-arrow:hover {
+            opacity: 0.8;
+        }
+        .fps-widget-total {
+            font-weight: 700;
+            font-size: 28px;
+            margin: 2px 0 0 0;
+            user-select: none;
+            line-height: 1;
+        }
+        .fps-widget-total span {
+            font-size: 14px;
+            opacity: 0.5;
+            text-transform: uppercase;
+        }
+        .fps-widget-memory {
+            font-weight: 500;
+            font-size: 11px;
+            margin: 0;
+            user-select: none;
+            color: inherit;
+            opacity: 0.7;
+        }
+        .fps-widget .hidden {
+            display: none;
+        }
+        .fps-widget-memory span {
+            font-size: 8px;
+            opacity: 0.5;
+            text-transform: uppercase;
+        }
+        .fps-widget-graph-container {
+            width: 100%;
+            height: 40px;
+            position: relative;
+        }
+        .fps-widget-graph {
+            width: 100%;
+            height: 100%;
+        }`;
+        document.head.appendChild(style);
+    }
+    /**
      * @typedef {Object} FPSCounterOptions
      * @property {boolean} [manual=false] - If true, disables internal animation loop; use update() manually.
      * @property {boolean} [bare=false] - If true, uses container directly for text updates.
@@ -24,9 +139,10 @@ export default class FPSCounter {
      * @throws {Error} If container is not a valid DOM element.
      */
     constructor(container = document.body, options = {}) {
-        // If widget mode, ensure Inter font is loaded
+        // If widget mode, ensure Inter font and widget styles are loaded
         if (!options.bare && options.widget) {
             FPSCounter._ensureInterFont();
+            FPSCounter._ensureWidgetStyles();
         }
 
         if (!(container instanceof HTMLElement)) {
