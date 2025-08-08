@@ -109,7 +109,7 @@ export default class FPSCounter {
                 <h5 class="fps-widget-total" data-fps-value>00<span>FPS</span></h5>
                 <h5 class="fps-widget-memory hidden" data-fps-memory>0.0<span>MB</span></h5>
                 <div class="fps-widget-graph-container">
-                    <canvas class="fps-widget-graph" data-fps-graph width="100" height="40" style="width:100px;height:40px;"></canvas>
+                    <canvas class="fps-widget-graph" data-fps-graph style="width:100%;height:40px;display:block;"></canvas>
                 </div>`;
             this.container.appendChild(widget);
 
