@@ -24,6 +24,11 @@ export default class FPSCounter {
      * @throws {Error} If container is not a valid DOM element.
      */
     constructor(container = document.body, options = {}) {
+        // If widget mode, ensure Inter font is loaded
+        if (!options.bare && options.widget) {
+            FPSCounter._ensureInterFont();
+        }
+
         if (!(container instanceof HTMLElement)) {
             throw new Error('Container must be a valid DOM element.');
         }
@@ -321,6 +326,21 @@ export default class FPSCounter {
      */
     tick(fps, frameCount) {
         this.update(fps, frameCount);
+    }
+
+    /**
+     * Ensures the Inter font is loaded from Google Fonts (only once per page).
+     */
+    static _ensureInterFont() {
+        const interHref = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap';
+        const links = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]'));
+        if (links.some(l => l.href && l.href.includes('fonts.googleapis.com') && l.href.includes('Inter')))
+            return;
+        const link = document.createElement('link');
+        link.id = 'fpscounter-inter-font';
+        link.rel = 'stylesheet';
+        link.href = interHref;
+        document.head.appendChild(link);
     }
 
     drawGraphs() {
