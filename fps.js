@@ -99,12 +99,12 @@ export default class FPSCounter {
             widget.setAttribute('data-fps-widget', '');
             widget.innerHTML = `<div class="fps-widget-header">
                     <h4 class="fps-widget-title">Performance</h4>
-                    <div class="fps-widget-arrow">›</div>
+                    <div class="fps-widget-arrow">&rsaquo;</div>
                 </div>
-                <h5 class="fps-widget-total" data-fps-value>80<span>FPS</span></h5>
-                <h5 class="fps-widget-memory hidden" data-fps-memory>2.6<span>MB</span></h5>
+                <h5 class="fps-widget-total" data-fps-value>00<span>FPS</span></h5>
+                <h5 class="fps-widget-memory hidden" data-fps-memory>0.0<span>MB</span></h5>
                 <div class="fps-widget-graph-container">
-                    <canvas class="fps-widget-graph" data-fps-graph style="width:100px;height:40px;"></canvas>
+                    <canvas class="fps-widget-graph" data-fps-graph width="100" height="40" style="width:100px;height:40px;"></canvas>
                 </div>`;
             this.container.appendChild(widget);
 
