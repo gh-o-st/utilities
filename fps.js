@@ -340,13 +340,6 @@ export default class FPSCounter {
         this.frameCount++;
         this.framesSinceLastUpdate++;
 
-        // Update FPS history for graph (widget mode only)
-        if (this.widget) {
-            this.fpsHistory.push(this.fps);
-            if (this.fpsHistory.length > this.maxHistory) this.fpsHistory.shift();
-            this.drawGraphs();
-        }
-
         if (currentTime - this.lastFpsUpdate >= this.fpsInterval) {
             this.previousFps = this.fps;
             this.fps = Math.round((this.framesSinceLastUpdate * 1000) / (currentTime - this.lastFpsUpdate));
@@ -354,6 +347,13 @@ export default class FPSCounter {
             this.framesSinceLastUpdate = 0;
 
             this.updateDisplay();
+
+            // Only update graph when FPS actually changes
+            if (this.widget) {
+                this.fpsHistory.push(this.fps);
+                if (this.fpsHistory.length > this.maxHistory) this.fpsHistory.shift();
+                this.drawGraphs();
+            }
         }
 
         this.lastTime = currentTime;
