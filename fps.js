@@ -382,26 +382,25 @@ export default class FPSCounter {
         const isDark = widget && widget.classList.contains('dark');
         
         // Draw bars
+        // The most recent FPS value (rightmost bar)
+        const currentFps = this.fpsHistory[this.fpsHistory.length - 1] || 0;
         for (let i = 0; i < this.fpsHistory.length; i++) {
             const isActive = i === this.fpsHistory.length - 1;
             const barHeight = isActive ? activeBarHeight : normalBarHeight;
             const x = startX + i * (scaledBarWidth + scaledBarGap);
-            const y = H - barHeight - 16; // less space for labels in compact mode
-            
-            // Color based on theme and activity
+            const y = H - barHeight - 16;
+
+            // Determine color
             let color;
             if (isActive) {
                 color = '#00bcd4';
+            } else if (this.fpsHistory[i] > currentFps) {
+                color = 'rgba(169, 195, 201, 0.2)';
             } else {
                 const opacity = 0.3 + (0.7 * i / this.fpsHistory.length);
-                if (isDark) {
-                    color = `rgba(0, 188, 212, ${opacity})`;
-                } else {
-                    color = `rgba(0, 188, 212, ${opacity})`;
-                }
+                color = `rgba(0, 188, 212, ${opacity})`;
             }
-            
-            // Draw rounded rectangle
+
             ctx.fillStyle = color;
             ctx.beginPath();
             const radius = scaledBarWidth / 2;
