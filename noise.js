@@ -2,7 +2,7 @@
  * Utility class for generating and caching procedural noise textures.
  * Supports monochrome, RGB, and RGBA noise generation with optional caching and localStorage persistence.
  */
-class Noise {
+export default class Noise {
     /**
      * Internal cache for generated noise textures.
      * @type {Map<string, Uint8Array>}
