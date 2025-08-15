@@ -9,6 +9,8 @@ export default class Noise {
      * @private
      */
     static #cache = new Map();
+    static #dbName = 'NoiseTextureCacheDB';
+    static #storeName = 'textures';
 
     /**
      * Optional callback for cache status updates. Set this to a function to receive notifications.
@@ -54,8 +56,7 @@ export default class Noise {
         }
 
         let data;
-        
-        // Delegate to appropriate child class based on type
+        // ...existing code...
         switch (opts.type) {
             case 'random':
                 data = RandomNoise.generate(width, height, opts);
@@ -78,7 +79,7 @@ export default class Noise {
 
         if (opts.useCache) {
             this.#cache.set(key, data);
-            this._saveCacheToLocalStorage();
+            await this._updateTextureInIndexedDB(key, data);
         }
         return data;
     }
@@ -89,12 +90,19 @@ export default class Noise {
      * @param {number} width - Width of the texture.
      * @param {number} height - Height of the texture.
      * @param {object} [options={}] - Configuration options for noise generation. See `generate` for details.
-     * @param {string} [format='png'] - Image format ('png' or 'jpeg').
-     * @param {number} [quality=0.9] - Image quality for JPEG.
      * @returns {Promise<void>} Promise resolving when download is triggered.
      */
-    static async download(filename, width, height, options = {}, format = 'png', quality = 0.9) {
-        const blob = await this.#toBlob(width, height, options, format, quality);
+    static async download(filename, width, height, options = {}) {
+        // Determine format based on channels
+        const channels = options.channels || 4;
+        let blob;
+        if (channels === 4) {
+            blob = await this.#toBlob(width, height, options, 'webp');
+        } else if (channels === 3 || channels === 1) {
+            blob = await this.#toBlob(width, height, options, 'bmp');
+        } else {
+            blob = await this.#toBlob(width, height, options, 'webp');
+        }
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -116,16 +124,16 @@ export default class Noise {
     /**
      * Clears the internal cache and updates localStorage.
      */
-    static clearCache() {
+    static async clearCache() {
         this.#cache.clear();
-        this._saveCacheToLocalStorage();
+        await this._clearIndexedDBStore();
     }
 
     /**
      * Loads the cache from localStorage on class initialization.
      */
     static {
-        this._loadCacheFromLocalStorage();
+        this._loadCacheFromIndexedDB();
     }
 
     /**
@@ -133,12 +141,10 @@ export default class Noise {
      * @param {number} width - Width of the texture.
      * @param {number} height - Height of the texture.
      * @param {object} [options={}] - Configuration options for noise generation. See `generate` for details.
-     * @param {string} [format='png'] - Image format ('png' or 'jpeg').
-     * @param {number} [quality=0.9] - Image quality for JPEG.
      * @returns {Promise<Blob>} Promise resolving to the image Blob.
      * @private
      */
-    static async #toBlob(width, height, options = {}, format = 'png', quality = 0.9) {
+    static async #toBlob(width, height, options = {}) {
         const noiseData = await this.generate(width, height, options);
         const canvas = document.createElement('canvas');
         canvas.width = width;
@@ -173,56 +179,161 @@ export default class Noise {
         }
         ctx.putImageData(imageData, 0, 0);
 
+        // WebP output for 4 channels
+        if (format === 'webp') {
+            return new Promise((resolve) => {
+                canvas.toBlob(resolve, 'image/webp');
+            });
+        }
+
+        // BMP output for 3 channels
+        if (format === 'bmp') {
+            // BMP encoding (24-bit, no alpha)
+            // BMP header sizes
+            const fileHeaderSize = 14;
+            const dibHeaderSize = 40;
+            const rowSize = Math.floor((24 * width + 31) / 32) * 4;
+            const pixelArraySize = rowSize * height;
+            const fileSize = fileHeaderSize + dibHeaderSize + pixelArraySize;
+            const buffer = new ArrayBuffer(fileSize);
+            const view = new DataView(buffer);
+            let offset = 0;
+            // BITMAPFILEHEADER
+            view.setUint8(offset, 0x42); offset++; // 'B'
+            view.setUint8(offset, 0x4D); offset++; // 'M'
+            view.setUint32(offset, fileSize, true); offset += 4; // file size
+            view.setUint16(offset, 0, true); offset += 2; // reserved1
+            view.setUint16(offset, 0, true); offset += 2; // reserved2
+            view.setUint32(offset, fileHeaderSize + dibHeaderSize, true); offset += 4; // pixel data offset
+            // BITMAPINFOHEADER
+            view.setUint32(offset, dibHeaderSize, true); offset += 4; // header size
+            view.setInt32(offset, width, true); offset += 4; // width
+            view.setInt32(offset, height, true); offset += 4; // height
+            view.setUint16(offset, 1, true); offset += 2; // planes
+            view.setUint16(offset, 24, true); offset += 2; // bits per pixel
+            view.setUint32(offset, 0, true); offset += 4; // compression (none)
+            view.setUint32(offset, pixelArraySize, true); offset += 4; // image size
+            view.setInt32(offset, 2835, true); offset += 4; // x pixels per meter
+            view.setInt32(offset, 2835, true); offset += 4; // y pixels per meter
+            view.setUint32(offset, 0, true); offset += 4; // colors used
+            view.setUint32(offset, 0, true); offset += 4; // important colors
+            // Pixel array (bottom-up)
+            const padding = rowSize - width * 3;
+            for (let y = height - 1; y >= 0; y--) {
+                for (let x = 0; x < width; x++) {
+                    const srcIdx = (y * width + x) * 3;
+                    // BMP uses BGR order
+                    view.setUint8(offset++, imageData.data[srcIdx + 2]); // B
+                    view.setUint8(offset++, imageData.data[srcIdx + 1]); // G
+                    view.setUint8(offset++, imageData.data[srcIdx]);     // R
+                }
+                // Padding
+                for (let p = 0; p < padding; p++) {
+                    view.setUint8(offset++, 0);
+                }
+            }
+            return new Blob([buffer], { type: 'image/bmp' });
+        }
+
+        // fallback: PNG
         return new Promise((resolve) => {
-            const mimeType = (format.toLowerCase() === 'jpeg' || format.toLowerCase() === 'jpg') ? 'image/jpeg' : 'image/png';
-            canvas.toBlob(resolve, mimeType, quality);
+            canvas.toBlob(resolve, 'image/png');
         });
     }
 
     /**
-     * Saves the current cache to localStorage.
+     * Opens the IndexedDB database and returns a db instance.
      * @private
      */
-    static _saveCacheToLocalStorage() {
+    static _openDB() {
+        return new Promise((resolve, reject) => {
+            const request = window.indexedDB.open(this.#dbName, 1);
+            request.onupgradeneeded = function (event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(Noise.#storeName)) {
+                    db.createObjectStore(Noise.#storeName);
+                }
+            };
+            request.onsuccess = function (event) {
+                resolve(event.target.result);
+            };
+            request.onerror = function (event) {
+                reject(event.target.error);
+            };
+        });
+    }
+
+    /**
+     * Updates or adds a single texture in IndexedDB.
+     * @private
+     */
+    static async _updateTextureInIndexedDB(key, value) {
         try {
-            const cacheData = {};
-            for (let [key, value] of this.#cache.entries()) {
-                cacheData[key] = Array.from(value);
-            }
-            localStorage.setItem('noiseTextureCache', JSON.stringify(cacheData));
-            // Use callback if set
-            if (typeof this.onCacheStatusUpdate === 'function') {
-                this.onCacheStatusUpdate();
-            }
+            const db = await this._openDB();
+            const tx = db.transaction(this.#storeName, 'readwrite');
+            const store = tx.objectStore(this.#storeName);
+            store.put(Array.from(value), key);
+            tx.oncomplete = () => {
+                if (typeof this.onCacheStatusUpdate === 'function') {
+                    this.onCacheStatusUpdate();
+                }
+                db.close();
+            };
         } catch (e) {
-            console.warn('Failed to save cache to localStorage:', e);
+            console.warn('Failed to update texture in IndexedDB:', e);
         }
     }
 
     /**
-     * Loads the cache from localStorage.
-     * @returns {boolean} True if cache was loaded successfully, false otherwise.
+     * Clears the entire IndexedDB store.
      * @private
      */
-    static _loadCacheFromLocalStorage() {
+    static async _clearIndexedDBStore() {
         try {
-            const stored = localStorage.getItem('noiseTextureCache');
-            if (stored) {
-                const cacheData = JSON.parse(stored);
-                this.#cache.clear();
-                for (let [key, value] of Object.entries(cacheData)) {
-                    this.#cache.set(key, new Uint8Array(value));
-                }
-                // Use callback if set
+            const db = await this._openDB();
+            const tx = db.transaction(this.#storeName, 'readwrite');
+            const store = tx.objectStore(this.#storeName);
+            store.clear();
+            tx.oncomplete = () => {
                 if (typeof this.onCacheStatusUpdate === 'function') {
                     this.onCacheStatusUpdate();
                 }
-                return true;
-            }
+                db.close();
+            };
         } catch (e) {
-            console.warn('Failed to load cache from localStorage:', e);
+            console.warn('Failed to clear IndexedDB store:', e);
         }
-        return false;
+    }
+
+    /**
+     * Loads the cache from IndexedDB.
+     * @private
+     */
+    static _loadCacheFromIndexedDB() {
+        this._openDB().then(db => {
+            const tx = db.transaction(this.#storeName, 'readonly');
+            const store = tx.objectStore(this.#storeName);
+            const request = store.getAllKeys();
+            request.onsuccess = (event) => {
+                const keys = event.target.result;
+                if (keys.length === 0) return;
+                const valuesReq = store.getAll();
+                valuesReq.onsuccess = (ev) => {
+                    this.#cache.clear();
+                    const values = ev.target.result;
+                    for (let i = 0; i < keys.length; i++) {
+                        this.#cache.set(keys[i], new Uint8Array(values[i]));
+                    }
+                    if (typeof this.onCacheStatusUpdate === 'function') {
+                        this.onCacheStatusUpdate();
+                    }
+                    db.close();
+                };
+            };
+            request.onerror = () => db.close();
+        }).catch(e => {
+            console.warn('Failed to load cache from IndexedDB:', e);
+        });
     }
 }
 
@@ -326,6 +437,7 @@ class NoiseUtils {
         chebyshev: (x1, y1, x2, y2) => Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2))
     };
 }
+export { NoiseUtils };
 
 /**
  * Random noise generator class.
