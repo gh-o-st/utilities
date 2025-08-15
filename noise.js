@@ -11,6 +11,12 @@ export default class Noise {
     static #cache = new Map();
 
     /**
+     * Optional callback for cache status updates. Set this to a function to receive notifications.
+     * @type {function|null}
+     */
+    static onCacheStatusUpdate = null;
+
+    /**
      * Generates a noise texture as a Uint8Array.
      * @param {number} width - Width of the texture.
      * @param {number} height - Height of the texture.
@@ -72,7 +78,7 @@ export default class Noise {
 
         if (opts.useCache) {
             this.#cache.set(key, data);
-            this.#saveCacheToLocalStorage();
+            this._saveCacheToLocalStorage();
         }
         return data;
     }
@@ -100,18 +106,26 @@ export default class Noise {
     }
 
     /**
+     * Gets the current size of the cache.
+     * @returns {number} The number of items stored in the cache.
+     */
+    static get cacheSize() {
+        return this.#cache.size;
+    }
+
+    /**
      * Clears the internal cache and updates localStorage.
      */
     static clearCache() {
         this.#cache.clear();
-        this.#saveCacheToLocalStorage();
+        this._saveCacheToLocalStorage();
     }
 
     /**
      * Loads the cache from localStorage on class initialization.
      */
     static {
-        this.#loadCacheFromLocalStorage();
+        this._loadCacheFromLocalStorage();
     }
 
     /**
@@ -169,13 +183,7 @@ export default class Noise {
      * Saves the current cache to localStorage.
      * @private
      */
-    /**
-     * Optional callback for cache status updates. Set this to a function to receive notifications.
-     * @type {function|null}
-     */
-    static onCacheStatusUpdate = null;
-
-    static #saveCacheToLocalStorage() {
+    static _saveCacheToLocalStorage() {
         try {
             const cacheData = {};
             for (let [key, value] of this.#cache.entries()) {
@@ -196,7 +204,7 @@ export default class Noise {
      * @returns {boolean} True if cache was loaded successfully, false otherwise.
      * @private
      */
-    static #loadCacheFromLocalStorage() {
+    static _loadCacheFromLocalStorage() {
         try {
             const stored = localStorage.getItem('noiseTextureCache');
             if (stored) {
