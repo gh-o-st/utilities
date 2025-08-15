@@ -56,7 +56,6 @@ export default class Noise {
         }
 
         let data;
-        // ...existing code...
         switch (opts.type) {
             case 'random':
                 data = RandomNoise.generate(width, height, opts);
@@ -893,38 +892,37 @@ class SimplexNoise {
     static #G2 = (3 - Math.sqrt(3)) / 6;
 
     static generate(width, height, options) {
-        // This is the same generation logic as Perlin, just swapping the noise function
         const { channels, seed, scale, octaves, persistence, lacunarity } = options;
 
         if (channels === 1) {
             const perm = NoiseUtils.makePermutationTable(seed);
-            const noiseFunction = (x, y) => this.#fractalNoise2D(x, y, perm, octaves, persistence, lacunarity);
-            return this.#generateMonochrome(width, height, noiseFunction, scale);
+            const noiseFunction = (x, y) => this._fractalNoise2D(x, y, perm, octaves, persistence, lacunarity);
+            return this._generateMonochrome(width, height, noiseFunction, scale);
         }
 
         const permR = NoiseUtils.makePermutationTable(seed + 1);
-        const noiseR = (x, y) => this.#fractalNoise2D(x, y, permR, octaves, persistence, lacunarity);
+        const noiseR = (x, y) => this._fractalNoise2D(x, y, permR, octaves, persistence, lacunarity);
         
         const permG = NoiseUtils.makePermutationTable(seed + 2);
-        const noiseG = (x, y) => this.#fractalNoise2D(x, y, permG, octaves, persistence, lacunarity);
-        
+        const noiseG = (x, y) => this._fractalNoise2D(x, y, permG, octaves, persistence, lacunarity);
+
         const permB = NoiseUtils.makePermutationTable(seed + 3);
-        const noiseB = (x, y) => this.#fractalNoise2D(x, y, permB, octaves, persistence, lacunarity);
+        const noiseB = (x, y) => this._fractalNoise2D(x, y, permB, octaves, persistence, lacunarity);
 
         if (channels === 3) {
-            return this.#generateRGB(width, height, noiseR, noiseG, noiseB, scale);
+            return this._generateRGB(width, height, noiseR, noiseG, noiseB, scale);
         }
         
         if (channels === 4) {
             const permA = NoiseUtils.makePermutationTable(seed + 4);
-            const noiseA = (x, y) => this.#fractalNoise2D(x, y, permA, octaves, persistence, lacunarity);
-            return this.#generateRGBA(width, height, noiseR, noiseG, noiseB, noiseA, scale);
+            const noiseA = (x, y) => this._fractalNoise2D(x, y, permA, octaves, persistence, lacunarity);
+            return this._generateRGBA(width, height, noiseR, noiseG, noiseB, noiseA, scale);
         }
 
         throw new Error("Unsupported channel count. Must be 1, 3, or 4.");
     }
 
-    static #noise2D(x, y, p) {
+    static _noise2D(x, y, p) {
         const s = (x + y) * this.#F2;
         const i = Math.floor(x + s);
         const j = Math.floor(y + s);
@@ -977,11 +975,11 @@ class SimplexNoise {
 
         return 70 * (n0 + n1 + n2);
     }
-    
-    // The fractal and channel generation methods are identical to Perlin's, 
-    // just using the simplex #noise2D - so we'll hijack it instead of duplicating it
-    static #fractalNoise2D = PerlinNoise._fractalNoise2D.bind(this);
-    static #generateMonochrome = PerlinNoise._generateMonochrome;
-    static #generateRGB = PerlinNoise._generateRGB;
-    static #generateRGBA = PerlinNoise._generateRGBA;
+
+    // The fractal and channel generation methods are identical to Perlin's,
+    // so now we hijack and use the public _noise2D method for compatibility
+    static _fractalNoise2D = PerlinNoise._fractalNoise2D;
+    static _generateMonochrome = PerlinNoise._generateMonochrome;
+    static _generateRGB = PerlinNoise._generateRGB;
+    static _generateRGBA = PerlinNoise._generateRGBA;
 }
