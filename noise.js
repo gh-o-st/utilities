@@ -92,24 +92,18 @@ export default class Noise {
      * @returns {Promise<void>} Promise resolving when download is triggered.
      */
     static async download(filename, width, height, options = {}) {
-        // Determine format based on channels
-        const channels = options.channels || 4;
-        let blob;
-        if (channels === 4) {
-            blob = await this.#toBlob(width, height, options, 'webp');
-        } else if (channels === 3 || channels === 1) {
-            blob = await this.#toBlob(width, height, options, 'bmp');
-        } else {
-            blob = await this.#toBlob(width, height, options, 'webp');
-        }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    const channels = options.channels || 4;
+    const format = options.format || (channels === 4 ? 'webp' : (channels === 3 || channels === 1 ? 'bmp' : 'webp'));
+    let blob;
+    blob = await this.#toBlob(width, height, options, format);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     }
 
     /**
@@ -143,7 +137,7 @@ export default class Noise {
      * @returns {Promise<Blob>} Promise resolving to the image Blob.
      * @private
      */
-    static async #toBlob(width, height, options = {}) {
+    static async #toBlob(width, height, options = {}, format = 'webp') {
         const noiseData = await this.generate(width, height, options);
         const canvas = document.createElement('canvas');
         canvas.width = width;
@@ -153,6 +147,17 @@ export default class Noise {
 
         // Create ImageData from noiseData based on channels
         const channels = options.channels || 4;
+        // Ensure format is set
+        if (!format) {
+            if (channels === 4) {
+                format = 'webp';
+            } else if (channels === 3 || channels === 1) {
+                format = 'bmp';
+            } else {
+                format = 'webp';
+            }
+        }
+
         if (channels === 1) {
             imageData = ctx.createImageData(width, height);
             for (let i = 0; i < noiseData.length; i++) {
