@@ -520,28 +520,28 @@ class PerlinNoise {
 
         if (channels === 1) {
             const perm = NoiseUtils.makePermutationTable(seed);
-            const noiseFunction = (x, y) => this.fractalNoise2D(x, y, perm, octaves, persistence, lacunarity);
-            return this.generateMonochrome(width, height, noiseFunction, scale);
+            const noiseFunction = (x, y) => this._fractalNoise2D(x, y, perm, octaves, persistence, lacunarity);
+            return this._generateMonochrome(width, height, noiseFunction, scale);
         } 
         
         // For multi-channel, create a different permutation table for each channel based on the seed
         const permR = NoiseUtils.makePermutationTable(seed + 1);
-        const noiseR = (x, y) => this.fractalNoise2D(x, y, permR, octaves, persistence, lacunarity);
-        
+        const noiseR = (x, y) => this._fractalNoise2D(x, y, permR, octaves, persistence, lacunarity);
+
         const permG = NoiseUtils.makePermutationTable(seed + 2);
-        const noiseG = (x, y) => this.fractalNoise2D(x, y, permG, octaves, persistence, lacunarity);
+        const noiseG = (x, y) => this._fractalNoise2D(x, y, permG, octaves, persistence, lacunarity);
 
         const permB = NoiseUtils.makePermutationTable(seed + 3);
-        const noiseB = (x, y) => this.fractalNoise2D(x, y, permB, octaves, persistence, lacunarity);
+        const noiseB = (x, y) => this._fractalNoise2D(x, y, permB, octaves, persistence, lacunarity);
 
         if (channels === 3) {
-            return this.generateRGB(width, height, noiseR, noiseG, noiseB, scale);
+            return this._generateRGB(width, height, noiseR, noiseG, noiseB, scale);
         } 
-        
+
         if (channels === 4) {
             const permA = NoiseUtils.makePermutationTable(seed + 4);
-            const noiseA = (x, y) => this.fractalNoise2D(x, y, permA, octaves, persistence, lacunarity);
-            return this.generateRGBA(width, height, noiseR, noiseG, noiseB, noiseA, scale);
+            const noiseA = (x, y) => this._fractalNoise2D(x, y, permA, octaves, persistence, lacunarity);
+            return this._generateRGBA(width, height, noiseR, noiseG, noiseB, noiseA, scale);
         }
 
         throw new Error("Unsupported channel count. Must be 1, 3, or 4.");
