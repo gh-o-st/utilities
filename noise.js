@@ -915,8 +915,8 @@ class VoronoiNoise {
     }
 }
 
-// Voronoi noise class
-class VoronoiNoise {
+// Alternative implementation focused on distance patterns
+class VoronoiNoiseAlternative {
     static generate(width, height, options) {
         const { channels, numPoints, seed, distanceMetric } = options;
         const distanceFunc = NoiseUtils.distance[distanceMetric];
@@ -967,23 +967,11 @@ class VoronoiNoise {
         
         const closest = distances[0];
         const secondClosest = distances[1] || distances[0];
-        
-        // Various pattern options:
-        
-        // Pattern 1: ID-based with distance modulation
+                
         const baseValue = (closest.point.id / points.length) * 255;
         const distanceMod = Math.min(closest.distance / 30, 1);
         return Math.floor(baseValue * (0.4 + 0.6 * distanceMod));
-        
-        // Pattern 2: Edge detection (uncomment to use)
-        // const edgeDistance = secondClosest.distance - closest.distance;
-        // return Math.floor(Math.min(edgeDistance * 10, 255));
-        
-        // Pattern 3: Combined pattern (uncomment to use)
-        // const baseValue = (closest.point.id / points.length) * 128;
-        // const edgeDistance = secondClosest.distance - closest.distance;
-        // const edgeValue = Math.min(edgeDistance * 5, 127);
-        // return Math.floor(baseValue + edgeValue);
+
     }
 
     static #generateDistanceBasedMonochrome(width, height, points, distanceFunc) {
