@@ -794,31 +794,36 @@ class WorleyNoise {
  * @private
  */
 /**
- * Improved Voronoi noise generator class.
+ * True Voronoi noise generator class.
+ * This implementation focuses on distance-based patterns rather than flat cellular regions.
  * @private
  */
 class VoronoiNoise {
     static generate(width, height, options) {
-        const { channels, numPoints, seed, distanceMetric } = options;
+        const { channels, numPoints, seed, distanceMetric, scale } = options;
         const distanceFunc = NoiseUtils.distance[distanceMetric];
-
+        
+        // Use scale parameter to control feature density
+        const scaledWidth = width * (scale || 0.01) * 50;
+        const scaledHeight = height * (scale || 0.01) * 50;
+        
         if (channels === 1) {
-            const points = this.#generateFeaturePoints(width, height, numPoints, seed);
-            return this.#generateMonochrome(width, height, points, distanceFunc);
+            const points = this.#generateFeaturePoints(scaledWidth, scaledHeight, numPoints, seed);
+            return this.#generateDistanceBasedMonochrome(width, height, points, distanceFunc, scale || 0.01);
         }
         
         // Generate different point sets for each channel
-        const pointsR = this.#generateFeaturePoints(width, height, numPoints, seed + 1);
-        const pointsG = this.#generateFeaturePoints(width, height, numPoints, seed + 2);
-        const pointsB = this.#generateFeaturePoints(width, height, numPoints, seed + 3);
+        const pointsR = this.#generateFeaturePoints(scaledWidth, scaledHeight, numPoints, seed + 1);
+        const pointsG = this.#generateFeaturePoints(scaledWidth, scaledHeight, numPoints, seed + 2);  
+        const pointsB = this.#generateFeaturePoints(scaledWidth, scaledHeight, numPoints, seed + 3);
 
         if (channels === 3) {
-            return this.#generateRGB(width, height, pointsR, pointsG, pointsB, distanceFunc);
+            return this.#generateDistanceBasedRGB(width, height, pointsR, pointsG, pointsB, distanceFunc, scale || 0.01);
         }
         
         if (channels === 4) {
-            const pointsA = this.#generateFeaturePoints(width, height, numPoints, seed + 4);
-            return this.#generateRGBA(width, height, pointsR, pointsG, pointsB, pointsA, distanceFunc);
+            const pointsA = this.#generateFeaturePoints(scaledWidth, scaledHeight, numPoints, seed + 4);
+            return this.#generateDistanceBasedRGBA(width, height, pointsR, pointsG, pointsB, pointsA, distanceFunc, scale || 0.01);
         }
         
         throw new Error("Unsupported channel count. Must be 1, 3, or 4.");
@@ -831,22 +836,23 @@ class VoronoiNoise {
             points.push({
                 x: rand() * width,
                 y: rand() * height,
-                // Use a more systematic approach for color generation
-                // Based on point position and index for more coherent patterns
-                color: Math.floor(((i / numPoints) * 0.7 + rand() * 0.3) * 256)
+                intensity: rand() // Random intensity for each point
             });
         }
         return points;
     }
 
-    static #getVoronoiValue(x, y, points, distanceFunc) {
+    static #getDistanceBasedValue(x, y, points, distanceFunc, scale) {
+        const scaledX = x * scale * 50;
+        const scaledY = y * scale * 50;
+        
         let minDist = Infinity;
         let secondMinDist = Infinity;
-        let closestPoint = points[0];
+        let closestPoint = null;
         
         // Find closest and second closest points
         for (const point of points) {
-            const dist = distanceFunc(x, y, point.x, point.y);
+            const dist = distanceFunc(scaledX, scaledY, point.x, point.y);
             if (dist < minDist) {
                 secondMinDist = minDist;
                 minDist = dist;
@@ -856,203 +862,169 @@ class VoronoiNoise {
             }
         }
         
-        // Multiple Voronoi pattern options:
+        if (!closestPoint) return 128;
         
-        // Option 1: Pure cellular (original approach)
-        // return closestPoint.color;
+        // Create different types of Voronoi patterns:
         
-        // Option 2: Distance-modulated cellular
-        const distanceModulation = Math.min(minDist / 50, 1); // Adjust 50 to control effect
-        return Math.floor(closestPoint.color * (0.5 + 0.5 * distanceModulation));
+        // Pattern 1: Edge-based (creates outlines of cells)
+        const edgeDistance = secondMinDist - minDist;
+        const edgeThreshold = 2.0; // Adjust for thicker/thinner edges
+        if (edgeDistance < edgeThreshold) {
+            return 255; // White edges
+        }
         
-        // Option 3: Edge emphasis (uncomment to use)
-        // const edgeDistance = secondMinDist - minDist;
-        // const edgeModulation = Math.min(edgeDistance / 20, 1);
-        // return Math.floor(closestPoint.color * (0.3 + 0.7 * edgeModulation));
+        // Pattern 2: Distance-based gradient within cells
+        const maxDistance = 20; // Adjust based on typical distances
+        const normalizedDistance = Math.min(minDist / maxDistance, 1);
+        const baseValue = closestPoint.intensity * 255;
         
-        // Option 4: Combined approach (uncomment to use)
-        // const edgeDistance = secondMinDist - minDist;
-        // const edgeModulation = Math.min(edgeDistance / 30, 1);
-        // const distanceModulation = Math.min(minDist / 40, 1);
-        // return Math.floor(closestPoint.color * (0.2 + 0.4 * distanceModulation + 0.4 * edgeModulation));
+        // Combine edge and gradient effects
+        return Math.floor(baseValue * (0.3 + 0.7 * (1 - normalizedDistance)));
     }
 
-    static #generateMonochrome(width, height, points, distanceFunc) {
+    static #generateDistanceBasedMonochrome(width, height, points, distanceFunc, scale) {
         const data = new Uint8Array(width * height);
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                data[y * width + x] = this.#getVoronoiValue(x, y, points, distanceFunc);
+                data[y * width + x] = this.#getDistanceBasedValue(x, y, points, distanceFunc, scale);
             }
         }
         return data;
     }
 
-    static #generateRGB(width, height, pointsR, pointsG, pointsB, distanceFunc) {
+    static #generateDistanceBasedRGB(width, height, pointsR, pointsG, pointsB, distanceFunc, scale) {
         const data = new Uint8Array(width * height * 3);
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const baseIndex = (y * width + x) * 3;
-                data[baseIndex] = this.#getVoronoiValue(x, y, pointsR, distanceFunc);
-                data[baseIndex + 1] = this.#getVoronoiValue(x, y, pointsG, distanceFunc);
-                data[baseIndex + 2] = this.#getVoronoiValue(x, y, pointsB, distanceFunc);
+                data[baseIndex] = this.#getDistanceBasedValue(x, y, pointsR, distanceFunc, scale);
+                data[baseIndex + 1] = this.#getDistanceBasedValue(x, y, pointsG, distanceFunc, scale);
+                data[baseIndex + 2] = this.#getDistanceBasedValue(x, y, pointsB, distanceFunc, scale);
             }
         }
         return data;
     }
 
-    static #generateRGBA(width, height, pointsR, pointsG, pointsB, pointsA, distanceFunc) {
+    static #generateDistanceBasedRGBA(width, height, pointsR, pointsG, pointsB, pointsA, distanceFunc, scale) {
         const data = new Uint8Array(width * height * 4);
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const baseIndex = (y * width + x) * 4;
-                data[baseIndex] = this.#getVoronoiValue(x, y, pointsR, distanceFunc);
-                data[baseIndex + 1] = this.#getVoronoiValue(x, y, pointsG, distanceFunc);
-                data[baseIndex + 2] = this.#getVoronoiValue(x, y, pointsB, distanceFunc);
-                data[baseIndex + 3] = this.#getVoronoiValue(x, y, pointsA, distanceFunc);
+                data[baseIndex] = this.#getDistanceBasedValue(x, y, pointsR, distanceFunc, scale);
+                data[baseIndex + 1] = this.#getDistanceBasedValue(x, y, pointsG, distanceFunc, scale);
+                data[baseIndex + 2] = this.#getDistanceBasedValue(x, y, pointsB, distanceFunc, scale);
+                data[baseIndex + 3] = this.#getDistanceBasedValue(x, y, pointsA, distanceFunc, scale);
             }
         }
         return data;
     }
 }
 
-// Alternative implementation focused on distance patterns
-class VoronoiNoiseAlternative {
+/**
+ * Alternative Voronoi implementation that creates more organic, noise-like patterns
+ * @private
+ */
+class VoronoiNoiseOrganic {
     static generate(width, height, options) {
-        const { channels, numPoints, seed, distanceMetric } = options;
+        const { channels, numPoints, seed, distanceMetric, scale } = options;
         const distanceFunc = NoiseUtils.distance[distanceMetric];
-
-        // Generate feature points
-        const points = this.#generateFeaturePoints(width, height, numPoints, seed);
         
         if (channels === 1) {
-            return this.#generateDistanceBasedMonochrome(width, height, points, distanceFunc);
+            return this.#generateOrganicMonochrome(width, height, numPoints, seed, distanceFunc, scale || 0.01);
         }
         
         if (channels === 3) {
-            return this.#generateDistanceBasedRGB(width, height, points, distanceFunc);
+            return this.#generateOrganicRGB(width, height, numPoints, seed, distanceFunc, scale || 0.01);
         }
         
         if (channels === 4) {
-            return this.#generateDistanceBasedRGBA(width, height, points, distanceFunc);
+            return this.#generateOrganicRGBA(width, height, numPoints, seed, distanceFunc, scale || 0.01);
         }
         
         throw new Error("Unsupported channel count. Must be 1, 3, or 4.");
     }
 
-    static #generateFeaturePoints(width, height, numPoints, seed) {
+    static #generateOrganicMonochrome(width, height, numPoints, seed, distanceFunc, scale) {
+        const data = new Uint8Array(width * height);
+        const points = this.#generateFeaturePoints(width, height, numPoints, seed, scale);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const value = this.#computeOrganicValue(x, y, points, distanceFunc, scale);
+                data[y * width + x] = Math.floor(Math.max(0, Math.min(255, value)));
+            }
+        }
+        return data;
+    }
+
+    static #generateOrganicRGB(width, height, numPoints, seed, distanceFunc, scale) {
+        const data = new Uint8Array(width * height * 3);
+        const pointsR = this.#generateFeaturePoints(width, height, numPoints, seed + 1, scale);
+        const pointsG = this.#generateFeaturePoints(width, height, numPoints, seed + 2, scale);
+        const pointsB = this.#generateFeaturePoints(width, height, numPoints, seed + 3, scale);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const baseIndex = (y * width + x) * 3;
+                data[baseIndex] = Math.floor(Math.max(0, Math.min(255, this.#computeOrganicValue(x, y, pointsR, distanceFunc, scale))));
+                data[baseIndex + 1] = Math.floor(Math.max(0, Math.min(255, this.#computeOrganicValue(x, y, pointsG, distanceFunc, scale))));
+                data[baseIndex + 2] = Math.floor(Math.max(0, Math.min(255, this.#computeOrganicValue(x, y, pointsB, distanceFunc, scale))));
+            }
+        }
+        return data;
+    }
+
+    static #generateOrganicRGBA(width, height, numPoints, seed, distanceFunc, scale) {
+        const data = new Uint8Array(width * height * 4);
+        const pointsR = this.#generateFeaturePoints(width, height, numPoints, seed + 1, scale);
+        const pointsG = this.#generateFeaturePoints(width, height, numPoints, seed + 2, scale);
+        const pointsB = this.#generateFeaturePoints(width, height, numPoints, seed + 3, scale);
+        const pointsA = this.#generateFeaturePoints(width, height, numPoints, seed + 4, scale);
+        
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const baseIndex = (y * width + x) * 4;
+                data[baseIndex] = Math.floor(Math.max(0, Math.min(255, this.#computeOrganicValue(x, y, pointsR, distanceFunc, scale))));
+                data[baseIndex + 1] = Math.floor(Math.max(0, Math.min(255, this.#computeOrganicValue(x, y, pointsG, distanceFunc, scale))));
+                data[baseIndex + 2] = Math.floor(Math.max(0, Math.min(255, this.#computeOrganicValue(x, y, pointsB, distanceFunc, scale))));
+                data[baseIndex + 3] = Math.floor(Math.max(0, Math.min(255, this.#computeOrganicValue(x, y, pointsA, distanceFunc, scale))));
+            }
+        }
+        return data;
+    }
+
+    static #generateFeaturePoints(width, height, numPoints, seed, scale) {
         const rand = NoiseUtils.makeRNG(seed);
         const points = [];
+        const scaleFactor = 50 * scale; // Convert scale to appropriate range
+        
         for (let i = 0; i < numPoints; i++) {
             points.push({
-                x: rand() * width,
-                y: rand() * height,
-                id: i
+                x: rand() * width * scaleFactor,
+                y: rand() * height * scaleFactor,
+                strength: rand() * 2 - 1, // Random strength between -1 and 1
+                falloff: 20 + rand() * 30  // Random falloff distance
             });
         }
         return points;
     }
 
-    static #getDistancePattern(x, y, points, distanceFunc) {
-        const distances = [];
+    static #computeOrganicValue(x, y, points, distanceFunc, scale) {
+        const scaleFactor = 50 * scale;
+        const scaledX = x * scaleFactor;
+        const scaledY = y * scaleFactor;
         
+        let totalInfluence = 0;
+        
+        // Instead of finding just the closest point, sum influences from multiple points
         for (const point of points) {
-            distances.push({
-                distance: distanceFunc(x, y, point.x, point.y),
-                point: point
-            });
+            const distance = distanceFunc(scaledX, scaledY, point.x, point.y);
+            const influence = point.strength * Math.exp(-distance / point.falloff);
+            totalInfluence += influence;
         }
         
-        // Sort by distance
-        distances.sort((a, b) => a.distance - b.distance);
-        
-        const closest = distances[0];
-        const secondClosest = distances[1] || distances[0];
-                
-        const baseValue = (closest.point.id / points.length) * 255;
-        const distanceMod = Math.min(closest.distance / 30, 1);
-        return Math.floor(baseValue * (0.4 + 0.6 * distanceMod));
-
-    }
-
-    static #generateDistanceBasedMonochrome(width, height, points, distanceFunc) {
-        const data = new Uint8Array(width * height);
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                data[y * width + x] = this.#getDistancePattern(x, y, points, distanceFunc);
-            }
-        }
-        return data;
-    }
-
-    static #generateDistanceBasedRGB(width, height, points, distanceFunc) {
-        const data = new Uint8Array(width * height * 3);
-        
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const baseIndex = (y * width + x) * 3;
-                
-                // Use different aspects of the Voronoi pattern for each channel
-                const distances = [];
-                for (const point of points) {
-                    distances.push({
-                        distance: distanceFunc(x, y, point.x, point.y),
-                        point: point
-                    });
-                }
-                distances.sort((a, b) => a.distance - b.distance);
-                
-                const closest = distances[0];
-                const secondClosest = distances[1] || distances[0];
-                const thirdClosest = distances[2] || distances[1] || distances[0];
-                
-                // Red: Closest point ID
-                data[baseIndex] = Math.floor((closest.point.id / points.length) * 255);
-                
-                // Green: Second closest point ID
-                data[baseIndex + 1] = Math.floor((secondClosest.point.id / points.length) * 255);
-                
-                // Blue: Edge distance
-                const edgeDistance = secondClosest.distance - closest.distance;
-                data[baseIndex + 2] = Math.floor(Math.min(edgeDistance * 8, 255));
-            }
-        }
-        return data;
-    }
-
-    static #generateDistanceBasedRGBA(width, height, points, distanceFunc) {
-        const data = new Uint8Array(width * height * 4);
-        
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const baseIndex = (y * width + x) * 4;
-                
-                const distances = [];
-                for (const point of points) {
-                    distances.push({
-                        distance: distanceFunc(x, y, point.x, point.y),
-                        point: point
-                    });
-                }
-                distances.sort((a, b) => a.distance - b.distance);
-                
-                const closest = distances[0];
-                const secondClosest = distances[1] || distances[0];
-                
-                // Red: Closest point ID
-                data[baseIndex] = Math.floor((closest.point.id / points.length) * 255);
-                
-                // Green: Second closest point ID  
-                data[baseIndex + 1] = Math.floor((secondClosest.point.id / points.length) * 255);
-                
-                // Blue: Edge distance
-                const edgeDistance = secondClosest.distance - closest.distance;
-                data[baseIndex + 2] = Math.floor(Math.min(edgeDistance * 8, 255));
-                
-                // Alpha: Distance from closest point
-                data[baseIndex + 3] = Math.floor(Math.min((closest.distance / 50) * 255, 255));
-            }
-        }
-        return data;
+        // Normalize and convert to 0-255 range
+        return (Math.tanh(totalInfluence) + 1) * 127.5;
     }
 }
 
