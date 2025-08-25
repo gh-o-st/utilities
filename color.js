@@ -15,6 +15,9 @@
  */
 const Color = class {
 
+    // ================================
+    // 1. Constructor & Core Properties
+    // ================================
     /**
      * Create a new Color instance.
      * @param {number} r Red channel (0-255)
@@ -35,6 +38,819 @@ const Color = class {
 
         this._compiled = {};
     }
+
+    // =========================
+    // 2. Instance Utilities
+    // =========================
+    /**
+     * Check if this color equals another Color instance.
+     * @param {Color} otherColor
+     * @returns {boolean}
+     */
+    equals(otherColor) {
+        if (!(otherColor instanceof Color)) {
+            return false;
+        }
+        return this.r === otherColor.r &&
+            this.g === otherColor.g &&
+            this.b === otherColor.b &&
+            this.a === otherColor.a;
+    }
+
+    /**
+     * Get color string in specified format.
+     * @param {string} [format='rgba'] Output format
+     * @returns {string}
+     */
+    getColor(format = 'rgba') {
+        if (!this._compiled[format]) {
+            this._compileTo(format);
+        }
+        return this._compiled[format];
+    }
+
+    /**
+     * Get cached or computed HSL values for this color.
+     * @private
+     * @returns {number[]} [h, s, l]
+     */
+    _getHsl() {
+        if (this._h === null || this._s === null || this._l === null) {
+            [this._h, this._s, this._l] = Color.rgbToHsl(this.r, this.g, this.b);
+        }
+        return [this._h, this._s, this._l];
+    }
+
+    /**
+     * Get cached or computed HSV values for this color.
+     * @private
+     * @returns {number[]} [h, s, v]
+     */
+    _getHsv() {
+        if (this._h === null || this._s === null || this._v === null) {
+            [this._h, this._s, this._v] = Color.rgbToHsv(this.r, this.g, this.b);
+        }
+        return [this._h, this._s, this._v];
+    }
+
+    /**
+     * Returns the color as a string in RGBA format.
+     * @returns {string} The color represented as an RGBA string.
+     */
+    toString() {
+        return this.getColor('rgba');
+    }
+
+    /**
+     * Calculates the Euclidean distance between this color and another Color instance.
+     *
+     * @param {Color} to - The Color instance to compare with.
+     * @returns {number} The Euclidean distance between the two colors in RGB space.
+     * @throws {TypeError} If the argument is not an instance of Color.
+     */
+    distance(to) {
+        if (!(to instanceof Color)) {
+            throw new TypeError('distance expects a Color instance');
+        }
+
+        const dr = this.r - to.r;
+        const dg = this.g - to.g;
+        const db = this.b - to.b;
+
+        return Math.sqrt(dr * dr + dg * dg + db * db);
+    }
+
+    // ==============================
+    // 3. Color Space Getters/Setters
+    // ==============================
+    /**
+     * Get Oklch representation of this color.
+     * @returns {number[]} [L, C, H]
+     */
+    getOklch() {
+        return Color.rgbToOklch(this.r, this.g, this.b);
+    }
+
+    /**
+     * Set color from Oklch values.
+     * @param {number} l Lightness
+     * @param {number} c Chroma
+     * @param {number} h Hue
+     * @param {number} [a=this.a] Alpha
+     * @returns {Color} This color instance
+     */
+    setOklch(l, c, h, a = this.a) {
+        const [r, g, b] = Color.oklchToRgb(l, c, h);
+        return this.setRgb(r, g, b, a);
+    }
+
+    /**
+     * Set color from RGB values.
+     * @param {number} r Red channel (0-255)
+     * @param {number} g Green channel (0-255)
+     * @param {number} b Blue channel (0-255)
+     * @param {number} [a=this.a] Alpha
+     * @returns {Color} This color instance
+     */
+    setRgb(r, g, b, a = this.a) {
+        this.r = Color._clampInt(r, 0, 255);
+        this.g = Color._clampInt(g, 0, 255);
+        this.b = Color._clampInt(b, 0, 255);
+        this.a = Color._clampFloat(a, 0, 1);
+        this._clearCache();
+        return this;
+    }
+
+    /**
+     * Set color from HSL values.
+     * @param {number} h Hue (0-360)
+     * @param {number} s Saturation (0-100)
+     * @param {number} l Lightness (0-100)
+     * @param {number} [a=this.a] Alpha
+     * @returns {Color} This color instance
+     */
+    setHsl(h, s, l, a = this.a) {
+        const [r, g, b] = Color.hslToRgb(h, s, l);
+        return this.setRgb(r, g, b, a);
+    }
+
+    /**
+     * Set color from HSV values.
+     * @param {number} h Hue (0-360)
+     * @param {number} s Saturation (0-100)
+     * @param {number} v Value (0-100)
+     * @param {number} [a=this.a] Alpha
+     * @returns {Color} This color instance
+     */
+    setHsv(h, s, v, a = this.a) {
+        const [r, g, b] = Color.hsvToRgb(h, s, v);
+        return this.setRgb(r, g, b, a);
+    }
+
+    // =========================
+    // 4. Transformations
+    // =========================
+    /**
+     * Lightens the color by increasing its lightness by the specified percentage.
+     * If mutate is true, mutates this instance; otherwise returns a new Color.
+     *
+     * @param {number} percent - The percentage to lighten the color (0-100).
+     * @param {Object} [options] - Options object.
+     * @param {boolean} [options.mutate=false] - If true, mutates this instance.
+     * @returns {Color} The lightened color.
+     */
+    lighten(percent, { mutate = false } = {}) {
+        percent = Color._clampFloat(percent, 0, 100);
+        return this.transform(({ h, s, l }) => {
+            const newL = Math.min(100, l + percent);
+            return { h, s, l: newL };
+        }, mutate);
+    }
+
+    /**
+     * Darkens the color by reducing its lightness by the specified percentage.
+     *
+     * @param {number} percent - The percentage to darken the color (between 0 and 100).
+     * @returns {Color} A new Color instance with reduced lightness.
+     */
+    darken(percent, {mutate = false} = {}) {
+        percent = Color._clampFloat(percent, 0, 100);
+        return this.transform(({ h, s, l }) => {
+            const newL = Math.max(0, l - percent);
+            return { h, s, l: newL };
+        }, mutate);
+    }
+
+    /**
+     * Increases the saturation of the color by a given percentage.
+     *
+     * @param {number} percent - The percentage to increase the saturation (0-100).
+     * @returns {Color} A new Color instance with increased saturation.
+     */
+    saturate(percent, {mutate = false} = {}) {
+        percent = Color._clampFloat(percent, 0, 100);
+        return this.transform(({ h, s, l }) => {
+            const newS = Math.min(100, s + percent);
+            return { h, s: newS, l };
+        }, mutate);
+    }
+
+    /**
+     * Reduces the saturation of the color by a given percentage.
+     *
+     * @param {number} percent - The percentage by which to decrease the saturation (0-100).
+     * @returns {Color} A new Color instance with reduced saturation.
+     */
+    desaturate(percent, {mutate = false} = {}) {
+        percent = Color._clampFloat(percent, 0, 100);
+        return this.transform(({ h, s, l }) => {
+            const newS = Math.max(0, s - percent);
+            return { h, s: newS, l };
+        }, mutate);
+    }
+
+    
+    /**
+     * Shifts the hue of the color by the specified number of degrees.
+     * The hue value wraps around within the 0-359 range.
+     *
+     * @param {number} degrees - The number of degrees to shift the hue. Can be positive or negative.
+     * @returns {Color} A new Color instance with the shifted hue.
+     */
+    shift(degrees, {mutate = false} = {}) {
+        degrees = degrees % 360;
+        if (degrees < 0) degrees += 360;
+
+        return this.transform(({ h, s, l }) => {
+            const newH = (h + degrees) % 360;
+            return { h: newH, s, l };
+        }, mutate);
+    }
+
+    /**
+     * Returns a new Color instance with inverted RGB values.
+     * The alpha value remains unchanged.
+     * @returns {Color} A new Color object with inverted colors.
+     */
+    invert({mutate = false} = {}) {
+        if (mutate) {
+            this._clearCache();
+            return this.setRgb(255 - this.r, 255 - this.g, 255 - this.b, this.a);
+        } else {
+            return new Color(255 - this.r, 255 - this.g, 255 - this.b, this.a);
+        }
+    }
+
+    /**
+     * Applies a transformation function to the color object, allowing modification of its properties.
+     *
+     * @param {function(Object): Object} transformFn - A function that receives an object containing the color's RGBA, HSL, and HSV values, and returns an object with updated values.
+     * @param {boolean} [mutable=false] - If true, mutates the current color object; otherwise, returns a new color instance.
+     * @returns {Color} The mutated color object if `mutable` is true, or a new color instance with the transformed values.
+     */
+    transform(transformFn, mutable = false) {
+        const [h, s, l] = this._getHsl();
+        const [v] = this._getHsv(); 
+
+        const result = transformFn({
+            r: this.r, g: this.g, b: this.b, a: this.a,
+            h, s, l, v
+        });
+
+        if (mutable) {
+            if (result.h !== undefined || result.s !== undefined || result.l !== undefined) {
+                return this.setHsl(
+                    result.h !== undefined ? result.h : h,
+                    result.s !== undefined ? result.s : s,
+                    result.l !== undefined ? result.l : l,
+                    result.a !== undefined ? result.a : this.a
+                );
+            } else if (result.r !== undefined || result.g !== undefined || result.b !== undefined) {
+                return this.setRgb(
+                    result.r !== undefined ? result.r : this.r,
+                    result.g !== undefined ? result.g : this.g,
+                    result.b !== undefined ? result.b : this.b,
+                    result.a !== undefined ? result.a : this.a
+                );
+            }
+            this._clearCache();
+            return this; 
+        } else {
+            if (result.h !== undefined || result.s !== undefined || result.l !== undefined) {
+                const [nr, ng, nb] = Color.hslToRgb(
+                    result.h !== undefined ? result.h : h,
+                    result.s !== undefined ? result.s : s,
+                    result.l !== undefined ? result.l : l
+                );
+                return new Color(nr, ng, nb, result.a !== undefined ? result.a : this.a);
+            } else if (result.r !== undefined || result.g !== undefined || result.b !== undefined) {
+                return new Color(
+                    result.r !== undefined ? result.r : this.r,
+                    result.g !== undefined ? result.g : this.g,
+                    result.b !== undefined ? result.b : this.b,
+                    result.a !== undefined ? result.a : this.a
+                );
+            }
+            return this.clone(); 
+        }
+    }
+
+    // =========================
+    // 5. Blending & Contrast
+    // =========================
+    /**
+     * Blend this color with another color.
+     * @param {Color} otherColor Color to blend with
+     * @param {number} [blendRatio=0.5] Blend ratio (0-1)
+     * @param {Object} [options] Options object
+     * @param {boolean} [options.mutate=false] If true, mutates this instance
+     * @returns {Color} New blended color or this color instance (mutated)
+     */
+    mix(otherColor, blendRatio = 0.5, { mutate = false } = {}) {
+        blendRatio = Color._clampFloat(blendRatio, 0, 1);
+        const lerp = (start, end) => start + (end - start) * blendRatio;
+
+        const newR = lerp(this.r, otherColor.r);
+        const newG = lerp(this.g, otherColor.g);
+        const newB = lerp(this.b, otherColor.b);
+        const newA = lerp(this.a, otherColor.a);
+
+        if (mutate) {
+            this._clearCache();
+            return this.setRgb(newR, newG, newB, newA);
+        } else {
+            return new Color(newR, newG, newB, newA);
+        }
+    }
+    
+    /**
+     * Get relative luminance of the color (WCAG).
+     * @returns {number}
+     */
+    getLuminance() {
+        const rgb = [this.r, this.g, this.b].map(v => {
+            const c = v / 255;
+            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+    }
+
+    /**
+     * Get contrast ratio against another color (WCAG).
+     * @param {Color} against Color to compare against
+     * @returns {number} Contrast ratio
+     */
+    getContrast(against) {
+        if (!(against instanceof Color)) {
+            throw new TypeError('getContrast expects a Color instance');
+        }
+
+        const lum1 = this.getLuminance();
+        const lum2 = against.getLuminance();
+
+        const brightest = Math.max(lum1, lum2);
+        const darkest = Math.min(lum1, lum2);
+
+        const contrastRatio = (brightest + 0.05) / (darkest + 0.05);
+        return +contrastRatio.toFixed(2);
+    }
+
+    /**
+     * Check if contrast ratio is sufficient for WCAG level.
+     * @param {Color} against Color to compare against
+     * @param {string} [level='AA'] WCAG level ('AA' or 'AAA')
+     * @param {string} [textSize='normal'] Text size ('normal' or 'large')
+     * @returns {boolean}
+     */
+    isContrastSufficient(against, level = 'AA', textSize = 'normal') {
+        const ratio = this.getContrast(against);
+        if (level === 'AAA') {
+            return textSize === 'large' ? ratio >= 4.5 : ratio >= 7;
+        } else {
+            return textSize === 'large' ? ratio >= 3 : ratio >= 4.5;
+        }
+    }
+
+    // ==============================
+    // 6. Palette & Scheme Generation
+    // ==============================
+    /**
+     * Returns the complementary color (hue shifted by 180 degrees).
+     * @returns {Color} A new Color instance representing the complementary color.
+     */
+    /**
+     * Generate a color palette based on a scheme.
+     * @param {Object} options
+     * @param {string} options.type - Palette type: 'analogous', 'triadic', 'tetradic', 'complementary', 'split-complementary', 'custom', etc.
+     * @param {number} [options.count=5] - Number of colors in the palette.
+     * @param {number} [options.hue] - Starting hue (defaults to this color's hue).
+     * @param {number} [options.saturation] - Saturation (defaults to this color's saturation).
+     * @param {number} [options.lightness] - Lightness (defaults to this color's lightness).
+     * @returns {Color[]} Array of Color instances.
+     */
+    generatePalette({ type = 'analogous', count = 5, hue, saturation, lightness } = {}) {
+        const [baseH, baseS, baseL] = this._getHsl();
+        const h = hue !== undefined ? hue : baseH;
+        const s = saturation !== undefined ? saturation : baseS;
+        const l = lightness !== undefined ? lightness : baseL;
+
+        let hues = [];
+        switch (type) {
+            case 'analogous': {
+                // Spread colors around the base hue, ±angle
+                const angle = 30;
+                const start = h - angle * Math.floor(count / 2);
+                for (let i = 0; i < count; i++) {
+                    hues.push((start + i * angle + 360) % 360);
+                }
+                break;
+            }
+            case 'triadic': {
+                // Evenly spaced around the wheel
+                for (let i = 0; i < count; i++) {
+                    hues.push((h + i * 120) % 360);
+                }
+                break;
+            }
+            case 'tetradic': {
+                // Evenly spaced, classic is 4 colors at 90°
+                for (let i = 0; i < count; i++) {
+                    hues.push((h + i * (360 / count)) % 360);
+                }
+                break;
+            }
+            case 'complementary': {
+                // Base and its complement
+                hues = [(h) % 360, (h + 180) % 360];
+                break;
+            }
+            case 'split-complementary': {
+                // Base, and two colors ±150°
+                hues = [(h) % 360, (h + 150) % 360, (h - 150 + 360) % 360];
+                break;
+            }
+            case 'custom': {
+                // Evenly spaced hues
+                for (let i = 0; i < count; i++) {
+                    hues.push((h + i * (360 / count)) % 360);
+                }
+                break;
+            }
+            default: {
+                // Fallback: evenly spaced
+                for (let i = 0; i < count; i++) {
+                    hues.push((h + i * (360 / count)) % 360);
+                }
+            }
+        }
+
+        return hues.map(hueVal => {
+            const [r, g, b] = Color.hslToRgb(hueVal, s, l);
+            return new Color(r, g, b, this.a);
+        });
+    }
+
+    getComplementary() {
+        const [h, s, l] = this._getHsl();
+        // Shift hue by 180 degrees, wrap around 360
+        const compHue = (h + 180) % 360;
+        const [r, g, b] = Color.hslToRgb(compHue, s, l);
+        return new Color(r, g, b, this.a);
+    }
+
+    getAnalogous() {
+        const [h, s, l] = this._getHsl();
+        const angle = 30; // degrees
+        const hues = [
+            (h + angle) % 360,
+            (h - angle + 360) % 360
+        ];
+        return hues.map(hue => {
+            const [r, g, b] = Color.hslToRgb(hue, s, l);
+            return new Color(r, g, b, this.a);
+        });
+    }
+
+    getTriadic() {
+        const [h, s, l] = this._getHsl();
+        const hues = [
+            (h + 120) % 360,
+            (h + 240) % 360
+        ];
+        return hues.map(hue => {
+            const [r, g, b] = Color.hslToRgb(hue, s, l);
+            return new Color(r, g, b, this.a);
+        });
+    }
+
+    getTetradic() {
+        const [h, s, l] = this._getHsl();
+        const hues = [
+            (h + 90) % 360,
+            (h + 180) % 360,
+            (h + 270) % 360
+        ];
+        return hues.map(hue => {
+            const [r, g, b] = Color.hslToRgb(hue, s, l);
+            return new Color(r, g, b, this.a);
+        });
+    }
+
+
+    // ==========================
+    // 7. Parsing & Serialization
+    // ==========================
+    /**
+     * Parses a color string and returns a Color object.
+     * Supports multiple color formats: HWB, LCH, OKLCH, HEX, RGB, HSL, HSV.
+     *
+     * @param {string} colorString - The color string to parse.
+     * @returns {Color} The parsed Color object.
+     * @throws {TypeError} If the input is not a string.
+     * @throws {Error} If the color string format is unsupported.
+     */
+    static fromString(colorString) {
+        if (typeof colorString !== 'string') {
+            throw new TypeError('Color.fromString expects a string');
+        }
+
+        // Each parser already trims and allows both cases, but we ensure consistency here by dammit.
+        colorString = colorString.trim().toLowerCase();
+
+        if (colorString.startsWith('hwb(')) return Color._parseHwb(colorString);
+        if (colorString.startsWith('lch(')) return Color._parseLch(colorString);
+        if (colorString.startsWith('oklch(')) return Color._parseOklch(colorString);
+        if (colorString.startsWith('#')) return Color._parseHex(colorString);
+        if (colorString.startsWith('rgb')) return Color._parseRgb(colorString);
+        if (colorString.startsWith('hsl')) return Color._parseHsl(colorString);
+        if (colorString.startsWith('hsv')) return Color._parseHsv(colorString);
+
+        throw new Error('Unsupported color string format: ' + colorString);
+    }
+
+    /**
+     * Parses a HWB color string and returns a Color instance.
+     *
+     * Supported format: `hwb(hue, whiteness%, blackness%[, alpha])`
+     * - hue: integer (0-360)
+     * - whiteness: percentage (0-100%)
+     * - blackness: percentage (0-100%)
+     * - alpha: optional float (0-1) or percentage (0-100%)
+     * 
+     * Example: `hwb(200, 30%, 20%, 0.5)`
+     *
+     * @private
+     * @static
+     * @param {string} str - The HWB color string to parse.
+     * @returns {Color} A Color instance representing the parsed color.
+     * @throws {Error} If the input string is not a valid HWB format.
+     */
+    static _parseHwb(str) {
+        const m = str.match(/^hwb\((\d{1,3}),\s*(\d{1,3})%,\s*(\d{1,3})%(?:,\s*([0-9]*\.?[0-9]+))?\)$/);
+        if (!m) throw new Error('Invalid HWB format');
+        const h = Color._clampInt(parseInt(m[1], 10), 0, 360);
+        const w = Color._clampInt(parseInt(m[2], 10), 0, 100);
+        const b_ = Color._clampInt(parseInt(m[3], 10), 0, 100);
+        let a = 1;
+        if (m[4] !== undefined) {
+            if (m[4].endsWith('%')) {
+                a = Color._clampFloat(parseFloat(m[4]) / 100, 0, 1);
+            } else {
+                a = Color._clampFloat(parseFloat(m[4]), 0, 1);
+            }
+        }
+        const [r, g, b] = Color.hwbToRgb(h, w, b_);
+        return new Color(r, g, b, a);
+    }
+
+    /**
+     * Parses an LCH color string and returns a Color instance.
+     *
+     * Supported format: `lch(lightness%, chroma, hue[, alpha])`
+     * - lightness: percentage (0-100%)
+     * - chroma: float (0-230) // capped at 230 to match CSS v4 specification
+     * - hue: integer (0-360)
+     * - alpha: optional float (0-1)
+     * 
+     * Example: `lch(70%, 40.5, 120, 0.8)`
+     *
+     * @private
+     * @static
+     * @param {string} str - The LCH color string to parse.
+     * @returns {Color} A Color instance representing the parsed color.
+     * @throws {Error} If the input string is not a valid LCH format.
+     */
+    static _parseLch(str) {
+        const m = str.match(/^lch\((\d{1,3})%,\s*([0-9]*\.?[0-9]+),\s*(\d{1,3})(?:,\s*([0-9]*\.?[0-9]+))?\)$/);
+        if (!m) throw new Error('Invalid LCH format');
+        const l = Color._clampInt(parseInt(m[1], 10), 0, 100);
+        const c = Color._clampFloat(parseFloat(m[2]), 0, 230);
+        const h = Color._clampInt(parseInt(m[3], 10), 0, 360);
+        const a = m[4] !== undefined ? Color._clampFloat(parseFloat(m[4]), 0, 1) : 1;
+        const [r, g, b] = Color.lchToRgb(l, c, h);
+        return new Color(r, g, b, a);
+    }
+
+    /**
+     * Parses an OKLCH color string and returns a Color instance.
+     *
+     * Supported format: `oklch(<lightness>[%], <chroma>, <hue>[, <alpha>])`
+     * - lightness: percentage (0-100%)
+     * - chroma: float (0-230)
+     * - hue: integer (0-360)
+     * - alpha: optional float (0-1)
+     * 
+     * Example: `oklch(62.5%, 0.15, 120, 0.8)`
+     *
+     * @private
+     * @static
+     * @param {string} str - The OKLCH color string to parse.
+     * @returns {Color} A Color instance representing the parsed color.
+     * @throws {Error} If the input string is not a valid OKLCH format.
+     */
+    static _parseOklch(str) {
+        const m = str.match(/^oklch\(\s*([0-9]*\.?[0-9]+)(%?)\s*,\s*([0-9]*\.?[0-9]+)\s*,\s*([0-9]*\.?[0-9]+)(?:\s*,\s*([0-9]*\.?[0-9]+))?\s*\)$/);
+        if (!m) throw new Error('Invalid OKLCH format');
+        let l = Color._clampFloat(parseFloat(m[1]), 0, 1);
+        if (m[2] === '%') l /= 100; // Convert percent to [0,1]
+        const c = Color._clampFloat(parseFloat(m[3]), 0, 230);
+        const h = Color._clampFloat(parseFloat(m[4]), 0, 360);
+        const a = m[5] !== undefined ? Color._clampFloat(parseFloat(m[5]), 0, 1) : 1;
+        const [r, g, b] = Color.oklchToRgb(l, c, h);
+        return new Color(r, g, b, a);
+    }
+
+    /**
+     * Parses a hex color string and returns a Color instance.
+     * This method supports various hex formats including:
+     * - 3-digit hex (e.g., `#f53`)
+     * - 4-digit hex (e.g., `#f538`)
+     * - 6-digit hex (e.g., `#ff5733`)
+     * - 8-digit hex (e.g., `#ff573380`)
+     * - The alpha channel is optional and defaults to 1 if not provided.
+     * 
+     * @private
+     * @static
+     * @param {string} str - The hex color string to parse.
+     * @returns {Color} A Color instance representing the parsed color.
+     * @throws {Error} If the input string is not a valid hex format.
+     */
+    static _parseHex(str) {
+        const m = str.match(/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/i);
+        if (!m) throw new Error('Invalid hex format');
+        let hex = m[1];
+        let r, g, b, a = 1;
+
+        if (hex.length === 3) {
+            // #RGB (3-digit hex code: #RGB)
+            r = Color._clampInt(parseInt(hex[0] + hex[0], 16), 0, 255);
+            g = Color._clampInt(parseInt(hex[1] + hex[1], 16), 0, 255);
+            b = Color._clampInt(parseInt(hex[2] + hex[2], 16), 0, 255);
+        } else if (hex.length === 4) {
+            // #RGBA (4-digit hex code: #RGBA)
+            r = Color._clampInt(parseInt(hex[0] + hex[0], 16), 0, 255);
+            g = Color._clampInt(parseInt(hex[1] + hex[1], 16), 0, 255);
+            b = Color._clampInt(parseInt(hex[2] + hex[2], 16), 0, 255);
+            a = Color._clampFloat(parseInt(hex[3] + hex[3], 16) / 255, 0, 1);
+        } else if (hex.length === 6) {
+            // #RRGGBB (6-digit hex code: #RRGGBB)
+            r = Color._clampInt(parseInt(hex.slice(0, 2), 16), 0, 255);
+            g = Color._clampInt(parseInt(hex.slice(2, 4), 16), 0, 255);
+            b = Color._clampInt(parseInt(hex.slice(4, 6), 16), 0, 255);
+        } else if (hex.length === 8) {
+            // #RRGGBBAA (8-digit hex code: #RRGGBBAA)
+            r = Color._clampInt(parseInt(hex.slice(0, 2), 16), 0, 255);
+            g = Color._clampInt(parseInt(hex.slice(2, 4), 16), 0, 255);
+            b = Color._clampInt(parseInt(hex.slice(4, 6), 16), 0, 255);
+            a = Color._clampFloat(parseInt(hex.slice(6, 8), 16) / 255, 0, 1);
+        } else {
+            throw new Error('Invalid hex length');
+        }
+        if (
+            typeof r !== 'number' || isNaN(r) ||
+            typeof g !== 'number' || isNaN(g) ||
+            typeof b !== 'number' || isNaN(b)
+        ) {
+            throw new Error('Failed to parse hex color channels');
+        }
+        return new Color(r, g, b, a);
+    }
+
+    /**
+     * Parses an RGB or RGBA color string and returns a Color instance.
+     *
+     * Supported formats:
+     * - rgb(r, g, b)
+     * - rgba(r, g, b, a) (alpha as float)
+     * - rgba(r, g, b, a%) (alpha as percentage)
+     *
+     * @private
+     * @static
+     * @param {string} str - The RGB(A) color string to parse.
+     * @returns {Color} A Color instance representing the parsed color.
+     * @throws {Error} If the input string is not a valid RGB(A) format.
+     */
+    static _parseRgb(str) {
+        const m = str.match(/^rgba?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*(?:,\s*([0-9]*\.?[0-9]+%?)\s*)?\)$/);
+        if (!m) throw new Error('Invalid RGB format');
+        const r = Color._clampInt(parseInt(m[1], 10), 0, 255);
+        const g = Color._clampInt(parseInt(m[2], 10), 0, 255);
+        const b = Color._clampInt(parseInt(m[3], 10), 0, 255);
+        let a = 1;
+        if (m[4] !== undefined) {
+            if (m[4].endsWith('%')) {
+                a = Color._clampFloat(parseFloat(m[4]) / 100, 0, 1);
+            } else {
+                a = Color._clampFloat(parseFloat(m[4]), 0, 1);
+            }
+        }
+        return new Color(r, g, b, a);
+    }
+
+    /**
+     * Parses an HSL or HSLA color string and returns a Color instance.
+     *
+     * Supported formats:
+     * - hsl(h, s%, l%)
+     * - hsla(h, s%, l%, a) (alpha as float)
+     * - hsla(h, s%, l%, a%) (alpha as percentage)
+     *
+     * @private
+     * @param {string} str - The HSL(A) color string to parse.
+     * @returns {Color} A new Color instance representing the parsed color.
+     * @throws {Error} If the input string is not a valid HSL(A) format.
+     */
+    static _parseHsl(str) {
+        const m = str.match(/^hsla?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})%\s*,\s*([0-9]{1,3})%\s*(?:,\s*([0-9]*\.?[0-9]+%?)\s*)?\)$/);
+        if (!m) throw new Error('Invalid HSL format');
+        const h = Color._clampInt(parseInt(m[1], 10), 0, 360);
+        const s = Color._clampInt(parseInt(m[2], 10), 0, 100);
+        const l = Color._clampInt(parseInt(m[3], 10), 0, 100);
+        const [r, g, b] = Color.hslToRgb(h, s, l);
+        let a = 1;
+        if (m[4] !== undefined) {
+            if (m[4].endsWith('%')) {
+                a = Color._clampFloat(parseFloat(m[4]) / 100, 0, 1);
+            } else {
+                a = Color._clampFloat(parseFloat(m[4]), 0, 1);
+            }
+        }
+        return new Color(r, g, b, a);
+    }
+
+    /**
+     * Parses an HSV(A) color string and returns a Color instance.
+     *
+     * Supported formats:
+     *   - hsv(h, s%, v%)
+     *   - hsva(h, s%, v%, a) (alpha as float)
+     *   - hsva(h, s%, v%, a%) (alpha as percentage)
+     *
+     * @private
+     * @param {string} str - The HSV(A) color string to parse.
+     * @returns {Color} The parsed Color instance.
+     * @throws {Error} If the input string is not a valid HSV(A) format.
+     */
+    static _parseHsv(str) {
+        const m = str.match(/^hsva?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})%\s*,\s*([0-9]{1,3})%\s*(?:,\s*([0-9]*\.?[0-9]+%?)\s*)?\)$/);
+        if (!m) throw new Error('Invalid HSV format');
+        const h = Color._clampInt(parseInt(m[1], 10), 0, 360);
+        const s = Color._clampInt(parseInt(m[2], 10), 0, 100);
+        const v = Color._clampInt(parseInt(m[3], 10), 0, 100);
+        const [r, g, b] = Color.hsvToRgb(h, s, v);
+        let a = 1;
+        if (m[4] !== undefined) {
+            if (m[4].endsWith('%')) {
+                a = Color._clampFloat(parseFloat(m[4]) / 100, 0, 1);
+            } else {
+                a = Color._clampFloat(parseFloat(m[4]), 0, 1);
+            }
+        }
+        return new Color(r, g, b, a);
+    }
+
+    /**
+     * Converts the color instance to a plain object with RGBA properties.
+     * @returns {{ r: number, g: number, b: number, a: number }} An object representing the color's red, green, blue, and alpha values.
+     */
+    toObject() {
+        return { r: this.r, g: this.g, b: this.b, a: this.a };
+    }
+
+    /**
+     * Creates a new Color instance from an object containing color properties.
+     *
+     * @param {Object} obj - The object containing color properties.
+     * @param {number} obj.r - The red component (0-255).
+     * @param {number} obj.g - The green component (0-255).
+     * @param {number} obj.b - The blue component (0-255).
+     * @param {number} [obj.a=1] - The alpha component (0-1). Defaults to 1 if not provided.
+     * @returns {Color} A new Color instance.
+     */
+    static fromObject(obj) {
+        return new Color(obj.r, obj.g, obj.b, obj.a ?? 1);
+    }
+
+    /**
+     * Converts the current instance to a plain object suitable for JSON serialization.
+     * @returns {Object} The object representation of the instance.
+     */
+    toJSON() {
+        return this.toObject();
+    }
+
+    /**
+     * Creates a Color instance from a JSON object.
+     * @param {Object} json - The JSON object representing a color.
+     * @returns {Color} The created Color instance.
+     */
+    static fromJSON(json) {
+        return Color.fromObject(json);
+    }
+
+    // ==========================================
+    // 8. Static Color Space Conversion Utilities
+    // ==========================================
 
     /**
      * Convert RGB to HWB color space.
@@ -252,950 +1068,6 @@ const Color = class {
     }
 
     /**
-     * Convert sRGB to linear RGB.
-     * @static
-     * @param {number} c sRGB value
-     * @returns {number} Linear RGB value
-     */
-    static _srgbToLinear(c) {
-        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-    }
-
-    /**
-     * Convert linear RGB to sRGB.
-     * @static
-     * @param {number} c Linear RGB value
-     * @returns {number} sRGB value
-     */
-    static _linearToSrgb(c) {
-        return c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
-    }
-
-    /**
-     * Get Oklch representation of this color.
-     * @returns {number[]} [L, C, H]
-     */
-    getOklch() {
-        return Color.rgbToOklch(this.r, this.g, this.b);
-    }
-
-    /**
-     * Set color from Oklch values.
-     * @param {number} l Lightness
-     * @param {number} c Chroma
-     * @param {number} h Hue
-     * @param {number} [a=this.a] Alpha
-     * @returns {Color} This color instance
-     */
-    setOklch(l, c, h, a = this.a) {
-        const [r, g, b] = Color.oklchToRgb(l, c, h);
-        return this.setRgb(r, g, b, a);
-    }
-
-    /**
-     * Check if this color equals another Color instance.
-     * @param {Color} otherColor
-     * @returns {boolean}
-     */
-    equals(otherColor) {
-        if (!(otherColor instanceof Color)) {
-            return false;
-        }
-        return this.r === otherColor.r &&
-            this.g === otherColor.g &&
-            this.b === otherColor.b &&
-            this.a === otherColor.a;
-    }
-
-    /**
-     * Get color string in specified format.
-     * @param {string} [format='rgba'] Output format
-     * @returns {string}
-     */
-    getColor(format = 'rgba') {
-        if (!this._compiled[format]) {
-            this._compileTo(format);
-        }
-        return this._compiled[format];
-    }
-
-    /**
-     * Get relative luminance of the color (WCAG).
-     * @returns {number}
-     */
-    getLuminance() {
-        const rgb = [this.r, this.g, this.b].map(v => {
-            const c = v / 255;
-            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-        });
-        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
-    }
-
-    /**
-     * Get contrast ratio against another color (WCAG).
-     * @param {Color} against Color to compare against
-     * @returns {number} Contrast ratio
-     */
-    getContrast(against) {
-        if (!(against instanceof Color)) {
-            throw new TypeError('getContrast expects a Color instance');
-        }
-
-        const lum1 = this.getLuminance();
-        const lum2 = against.getLuminance();
-
-        const brightest = Math.max(lum1, lum2);
-        const darkest = Math.min(lum1, lum2);
-
-        const contrastRatio = (brightest + 0.05) / (darkest + 0.05);
-        return +contrastRatio.toFixed(2);
-    }
-
-    /**
-     * Check if contrast ratio is sufficient for WCAG level.
-     * @param {Color} against Color to compare against
-     * @param {string} [level='AA'] WCAG level ('AA' or 'AAA')
-     * @param {string} [textSize='normal'] Text size ('normal' or 'large')
-     * @returns {boolean}
-     */
-    isContrastSufficient(against, level = 'AA', textSize = 'normal') {
-        const ratio = this.getContrast(against);
-        if (level === 'AAA') {
-            return textSize === 'large' ? ratio >= 4.5 : ratio >= 7;
-        } else {
-            return textSize === 'large' ? ratio >= 3 : ratio >= 4.5;
-        }
-    }
-
-    /**
-     * Set color from RGB values.
-     * @param {number} r Red channel (0-255)
-     * @param {number} g Green channel (0-255)
-     * @param {number} b Blue channel (0-255)
-     * @param {number} [a=this.a] Alpha
-     * @returns {Color} This color instance
-     */
-    setRgb(r, g, b, a = this.a) {
-        this.r = Color._clampInt(r, 0, 255);
-        this.g = Color._clampInt(g, 0, 255);
-        this.b = Color._clampInt(b, 0, 255);
-        this.a = Color._clampFloat(a, 0, 1);
-        this._clearCache();
-        return this;
-    }
-
-    /**
-     * Set color from HSL values.
-     * @param {number} h Hue (0-360)
-     * @param {number} s Saturation (0-100)
-     * @param {number} l Lightness (0-100)
-     * @param {number} [a=this.a] Alpha
-     * @returns {Color} This color instance
-     */
-    setHsl(h, s, l, a = this.a) {
-        const [r, g, b] = Color.hslToRgb(h, s, l);
-        return this.setRgb(r, g, b, a);
-    }
-
-    /**
-     * Set color from HSV values.
-     * @param {number} h Hue (0-360)
-     * @param {number} s Saturation (0-100)
-     * @param {number} v Value (0-100)
-     * @param {number} [a=this.a] Alpha
-     * @returns {Color} This color instance
-     */
-    setHsv(h, s, v, a = this.a) {
-        const [r, g, b] = Color.hsvToRgb(h, s, v);
-        return this.setRgb(r, g, b, a);
-    }
-
-    /**
-     * Clone this color instance.
-     * @returns {Color}
-     */
-    clone() {
-        return new Color(this.r, this.g, this.b, this.a);
-    }
-
-    /**
-     * Blend this color with another color.
-     * @param {Color} otherColor Color to blend with
-     * @param {number} [blendRatio=0.5] Blend ratio (0-1)
-     * @returns {Color} New blended color
-     */
-    mix(otherColor, blendRatio = 0.5) {
-        blendRatio = Color._clampFloat(blendRatio, 0, 1);
-        const lerp = (start, end) => start + (end - start) * blendRatio;
-
-        return new Color(
-            lerp(this.r, otherColor.r),
-            lerp(this.g, otherColor.g),
-            lerp(this.b, otherColor.b),
-            lerp(this.a, otherColor.a)
-        );
-    }
-
-    /**
-     * Blend this color with another color, mutating this instance.
-     * @param {Color} otherColor Color to blend with
-     * @param {number} [blendRatio=0.5] Blend ratio (0-1)
-     * @returns {Color} This color instance (mutated)
-     */
-    mixSelf(otherColor, blendRatio = 0.5) {
-        blendRatio = Color._clampFloat(blendRatio, 0, 1);
-        const lerp = (start, end) => start + (end - start) * blendRatio;
-
-        const newR = lerp(this.r, otherColor.r);
-        const newG = lerp(this.g, otherColor.g);
-        const newB = lerp(this.b, otherColor.b);
-        const newA = lerp(this.a, otherColor.a);
-
-        return this.setRgb(newR, newG, newB, newA);
-    }
-
-    
-    /**
-     * Lightens the color by increasing its lightness by the specified percentage.
-     *
-     * @param {number} percent - The percentage to lighten the color (0-100).
-     * @returns {Color} A new Color instance with increased lightness.
-     */
-    lighten(percent) {
-        percent = Color._clampFloat(percent, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            const newL = Math.min(100, l + percent);
-            return { h, s, l: newL };
-        }, false);
-    }
-
-    /**
-     * Lightens the current color instance by a specified percentage.
-     *
-     * @param {number} percent - The percentage to lighten the color (0-100).
-     * @returns {Color} This color instance (mutated).
-     */
-    lightenSelf(percent) {
-        percent = Color._clampFloat(percent, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            const newL = Math.min(100, l + percent);
-            return { h, s, l: newL };
-        }, true);
-    }
-
-    /**
-     * Darkens the color by reducing its lightness by the specified percentage.
-     *
-     * @param {number} percent - The percentage to darken the color (between 0 and 100).
-     * @returns {Color} A new Color instance with reduced lightness.
-     */
-    darken(percent) {
-        percent = Color._clampFloat(percent, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            const newL = Math.max(0, l - percent);
-            return { h, s, l: newL };
-        }, false);
-    }
-
-    /**
-     * Darkens the current color by reducing its lightness by the specified percentage.
-     *
-     * @param {number} percent - The percentage (0-100) to decrease the lightness.
-     * @returns {Color} This color instance (mutated).
-     */
-    darkenSelf(percent) {
-        percent = Color._clampFloat(percent, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            const newL = Math.max(0, l - percent);
-            return { h, s, l: newL };
-        }, true);
-    }
-
-    /**
-     * Increases the saturation of the color by a given percentage.
-     *
-     * @param {number} percent - The percentage to increase the saturation (0-100).
-     * @returns {Color} A new Color instance with increased saturation.
-     */
-    saturate(percent) {
-        percent = Color._clampFloat(percent, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            const newS = Math.min(100, s + percent);
-            return { h, s, l: newS };
-        }, false);
-    }
-
-    /**
-     * Increases the saturation of the current color instance by a given percentage.
-     * The resulting saturation is clamped between 0 and 100.
-     *
-     * @param {number} percent - The percentage to increase the saturation by (0-100).
-     * @returns {Color} This color instance (mutated).
-     */
-    saturateSelf(percent) {
-        percent = Color._clampFloat(percent, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            const newS = Math.min(100, s + percent);
-            return { h, s, l: newS };
-        }, true);
-    }
-
-    /**
-     * Reduces the saturation of the color by a given percentage.
-     *
-     * @param {number} percent - The percentage by which to decrease the saturation (0-100).
-     * @returns {Color} A new Color instance with reduced saturation.
-     */
-    desaturate(percent) {
-        percent = Color._clampFloat(percent, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            const newS = Math.max(0, s - percent);
-            return { h, s, l: newS };
-        }, false);
-    }
-
-    /**
-     * Reduces the saturation of the current color instance by a specified percentage.
-     *
-     * @param {number} percent - The percentage by which to decrease the saturation (0-100).
-     * @returns {Color} This color instance (mutated).
-     */
-    desaturateSelf(percent) {
-        percent = Color._clampFloat(percent, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            const newS = Math.max(0, s - percent);
-            return { h, s, l: newS };
-        }, true);
-    }
-
-    
-    /**
-     * Shifts the hue of the color by the specified number of degrees.
-     * The hue value wraps around within the 0-359 range.
-     *
-     * @param {number} degrees - The number of degrees to shift the hue. Can be positive or negative.
-     * @returns {Color} A new Color instance with the shifted hue.
-     */
-    shift(degrees) {
-        degrees = degrees % 360;
-        if (degrees < 0) degrees += 360;
-
-        return this.transform(({ h, s, l }) => {
-            const newH = (h + degrees) % 360;
-            return { h: newH, s, l };
-        }, false);
-    }
-
-    /**
-     * Shifts the hue of the current color by the specified number of degrees.
-     * The hue value is wrapped within the 0-359 range.
-     *
-     * @param {number} degrees - The number of degrees to shift the hue. Can be positive or negative.
-     * @returns {Color} This color instance (mutated).
-     */
-    shiftSelf(degrees) {
-        degrees = degrees % 360;
-        if (degrees < 0) degrees += 360;
-
-        return this.transform(({ h, s, l }) => {
-            const newH = (h + degrees) % 360;
-            return { h: newH, s, l };
-        }, true);
-    }
-
-    /**
-     * Returns a new Color instance with inverted RGB values.
-     * The alpha value remains unchanged.
-     * @returns {Color} A new Color object with inverted colors.
-     */
-    invert() {
-        return new Color(255 - this.r, 255 - this.g, 255 - this.b, this.a);
-    }
-
-    /**
-     * Inverts the current color by subtracting each RGB component from 255,
-     * preserving the alpha channel, and updates the color instance.
-     * @returns {Color} This color instance (mutated).
-     */
-    invertSelf() {
-        return this.setRgb(255 - this.r, 255 - this.g, 255 - this.b, this.a);
-    }
-
-    // just stubs for now, 
-    // will implement palette generation soon
-    getComplementary(){}
-    getAnalogous(){}
-    getAdjacent(){}
-    getTriadic(){}
-    getTetradic(){}
-
-    /**
-     * Calculates the Euclidean distance between this color and another Color instance.
-     *
-     * @param {Color} to - The Color instance to compare with.
-     * @returns {number} The Euclidean distance between the two colors in RGB space.
-     * @throws {TypeError} If the argument is not an instance of Color.
-     */
-    distance(to) {
-        if (!(to instanceof Color)) {
-            throw new TypeError('distance expects a Color instance');
-        }
-
-        const dr = this.r - to.r;
-        const dg = this.g - to.g;
-        const db = this.b - to.b;
-
-        return Math.sqrt(dr * dr + dg * dg + db * db);
-    }
-
-    
-    /**
-     * Adjusts the hue of the color to make it warmer by shifting it towards red/yellow.
-     * The amount of warming is controlled by the `amount` parameter.
-     * 
-     * - For hues between 60 and 180, the hue is decreased by `amount * 1.2`.
-     * - For hues between 180 and 300, the hue is decreased by `amount * 2`.
-     * - The hue is wrapped within the [0, 360) range.
-     * 
-     * @param {number} [amount=10] - The intensity of the warming effect (0-100).
-     * @returns {Color} A new Color instance with the warmed hue.
-     */
-    warm(amount = 10) {
-        amount = Color._clampFloat(amount, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            let newH = h;
-            if (h > 60 && h < 180) {
-                newH = h - (amount * 1.2);
-            } else if (h >= 180 && h < 300) {
-                newH = h - (amount * 2);
-            }
-            newH = (newH + 360) % 360;
-            return { h: newH, s, l };
-        }, false);
-    }
-
-    /**
-     * Warms the color by adjusting its hue based on the specified amount.
-     * For hues between 60 and 180, decreases hue by (amount * 1.2).
-     * For hues between 180 and 300, decreases hue by (amount * 2).
-     * The resulting hue is wrapped within [0, 360).
-     *
-     * @param {number} [amount=10] - The intensity of warming, clamped between 0 and 100.
-     * @returns {Color} This color instance (mutated).
-     */
-    warmSelf(amount = 10) {
-        amount = Color._clampFloat(amount, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            let newH = h;
-            if (h > 60 && h < 180) {
-                newH = h - (amount * 1.2);
-            } else if (h >= 180 && h < 300) {
-                newH = h - (amount * 2);
-            }
-            newH = (newH + 360) % 360;
-            return { h: newH, s, l };
-        }, true);
-    }
-
-    /**
-     * Shifts the hue of the color to make it "cooler" by increasing the hue value.
-     * The amount determines how much the hue is shifted, clamped between 0 and 100.
-     * For hues between 0 and 120, the hue is increased by (amount * 1.5).
-     * For hues between 120 and 180, the hue is increased by (amount * 1.2).
-     * The resulting hue is wrapped within the 0-360 range.
-     *
-     * @param {number} [amount=10] - The intensity of the cool effect (0-100).
-     * @returns {Color} A new Color instance with the adjusted hue.
-     */
-    cool(amount = 10) {
-        amount = Color._clampFloat(amount, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            let newH = h;
-            if (h >= 0 && h < 120) {
-                newH = h + (amount * 1.5);
-            } else if (h >= 120 && h < 180) {
-                newH = h + (amount * 1.2);
-            }
-            newH = newH % 360;
-            return { h: newH, s, l };
-        }, false);
-    }
-
-    /**
-     * Adjusts the hue of the current color to make it "cooler" by increasing its hue value.
-     * The amount of adjustment is clamped between 0 and 100.
-     * - For hues in [0, 120), increases hue by (amount * 1.5).
-     * - For hues in [120, 180), increases hue by (amount * 1.2).
-     * The resulting hue is wrapped within the 0-359 range.
-     *
-     * @param {number} [amount=10] - The intensity of the cooling effect (0-100).
-     * @returns {Color} This color instance (mutated).
-     */
-    coolSelf(amount = 10) {
-        amount = Color._clampFloat(amount, 0, 100);
-        return this.transform(({ h, s, l }) => {
-            let newH = h;
-            if (h >= 0 && h < 120) {
-                newH = h + (amount * 1.5);
-            } else if (h >= 120 && h < 180) {
-                newH = h + (amount * 1.2);
-            }
-            newH = newH % 360;
-            return { h: newH, s, l };
-        }, true);
-    }
-
-    /**
-     * Convert this color to CIE Lab color space (internal use).
-     * @private
-     * @returns {{l: number, a: number, b: number}} Lab color object
-     */
-    _toLab() {
-
-        let [r, g, b] = [this.r / 255, this.g / 255, this.b / 255];
-
-        r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
-        g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
-        b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
-
-        const x = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047;
-        const y = (r * 0.2126729 + g * 0.7151522 + b * 0.0721750) / 1.00000;
-        const z = (r * 0.0193339 + g * 0.1191920 + b * 0.9503041) / 1.08883;
-
-        const fx = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x + 16/116);
-        const fy = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y + 16/116);
-        const fz = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z + 16/116);
-
-        return {
-            l: 116 * fy - 16,
-            a: 500 * (fx - fy),
-            b: 200 * (fy - fz)
-        };
-    }
-
-    /**
-     * Applies a transformation function to the color object, allowing modification of its properties.
-     *
-     * @param {function(Object): Object} transformFn - A function that receives an object containing the color's RGBA, HSL, and HSV values, and returns an object with updated values.
-     * @param {boolean} [mutable=false] - If true, mutates the current color object; otherwise, returns a new color instance.
-     * @returns {Color} The mutated color object if `mutable` is true, or a new color instance with the transformed values.
-     */
-    transform(transformFn, mutable = false) {
-        const [h, s, l] = this._getHsl();
-        const [v] = this._getHsv(); 
-
-        const result = transformFn({
-            r: this.r, g: this.g, b: this.b, a: this.a,
-            h, s, l, v
-        });
-
-        if (mutable) {
-
-            if (result.h !== undefined || result.s !== undefined || result.l !== undefined) {
-                return this.setHsl(
-                    result.h !== undefined ? result.h : h,
-                    result.s !== undefined ? result.s : s,
-                    result.l !== undefined ? result.l : l,
-                    result.a !== undefined ? result.a : this.a
-                );
-            } else if (result.r !== undefined || result.g !== undefined || result.b !== undefined) {
-                return this.setRgb(
-                    result.r !== undefined ? result.r : this.r,
-                    result.g !== undefined ? result.g : this.g,
-                    result.b !== undefined ? result.b : this.b,
-                    result.a !== undefined ? result.a : this.a
-                );
-            }
-            return this; 
-        } else {
-
-            if (result.h !== undefined || result.s !== undefined || result.l !== undefined) {
-                const [nr, ng, nb] = Color.hslToRgb(
-                    result.h !== undefined ? result.h : h,
-                    result.s !== undefined ? result.s : s,
-                    result.l !== undefined ? result.l : l
-                );
-                return new Color(nr, ng, nb, result.a !== undefined ? result.a : this.a);
-            } else if (result.r !== undefined || result.g !== undefined || result.b !== undefined) {
-                return new Color(
-                    result.r !== undefined ? result.r : this.r,
-                    result.g !== undefined ? result.g : this.g,
-                    result.b !== undefined ? result.b : this.b,
-                    result.a !== undefined ? result.a : this.a
-                );
-            }
-            return this.clone(); 
-        }
-    }
-
-    /**
-     * Get cached or computed HSL values for this color.
-     * @private
-     * @returns {number[]} [h, s, l]
-     */
-    _getHsl() {
-        if (this._h === null || this._s === null || this._l === null) {
-            [this._h, this._s, this._l] = Color.rgbToHsl(this.r, this.g, this.b);
-        }
-        return [this._h, this._s, this._l];
-    }
-
-    /**
-     * Get cached or computed HSV values for this color.
-     * @private
-     * @returns {number[]} [h, s, v]
-     */
-    _getHsv() {
-        if (this._h === null || this._s === null || this._v === null) {
-            [this._h, this._s, this._v] = Color.rgbToHsv(this.r, this.g, this.b);
-        }
-        return [this._h, this._s, this._v];
-    }
-
-    /**
-     * Returns the color as a string in RGBA format.
-     * @returns {string} The color represented as an RGBA string.
-     */
-    toString() {
-        return this.getColor('rgba');
-    }
-
-    /**
-     * Parses a color string and returns a Color object.
-     * Supports multiple color formats: HWB, LCH, OKLCH, HEX, RGB, HSL, HSV.
-     *
-     * @param {string} colorString - The color string to parse.
-     * @returns {Color} The parsed Color object.
-     * @throws {TypeError} If the input is not a string.
-     * @throws {Error} If the color string format is unsupported.
-     */
-    static fromString(colorString) {
-        if (typeof colorString !== 'string') {
-            throw new TypeError('Color.fromString expects a string');
-        }
-
-        // Each parser already trims and allows both cases, but we ensure consistency here by dammit.
-        colorString = colorString.trim().toLowerCase();
-
-        if (colorString.startsWith('hwb(')) return Color._parseHwb(colorString);
-        if (colorString.startsWith('lch(')) return Color._parseLch(colorString);
-        if (colorString.startsWith('oklch(')) return Color._parseOklch(colorString);
-        if (colorString.startsWith('#')) return Color._parseHex(colorString);
-        if (colorString.startsWith('rgb')) return Color._parseRgb(colorString);
-        if (colorString.startsWith('hsl')) return Color._parseHsl(colorString);
-        if (colorString.startsWith('hsv')) return Color._parseHsv(colorString);
-
-        throw new Error('Unsupported color string format: ' + colorString);
-    }
-
-    /**
-     * Parses a HWB color string and returns a Color instance.
-     *
-     * Supported format: `hwb(hue, whiteness%, blackness%[, alpha])`
-     * - hue: integer (0-360)
-     * - whiteness: percentage (0-100%)
-     * - blackness: percentage (0-100%)
-     * - alpha: optional float (0-1) or percentage (0-100%)
-     * 
-     * Example: `hwb(200, 30%, 20%, 0.5)`
-     *
-     * @private
-     * @static
-     * @param {string} str - The HWB color string to parse.
-     * @returns {Color} A Color instance representing the parsed color.
-     * @throws {Error} If the input string is not a valid HWB format.
-     */
-    static _parseHwb(str) {
-        const m = str.match(/^hwb\((\d{1,3}),\s*(\d{1,3})%,\s*(\d{1,3})%(?:,\s*([0-9]*\.?[0-9]+))?\)$/);
-        if (!m) throw new Error('Invalid HWB format');
-        const h = Color._clampInt(parseInt(m[1], 10), 0, 360);
-        const w = Color._clampInt(parseInt(m[2], 10), 0, 100);
-        const b_ = Color._clampInt(parseInt(m[3], 10), 0, 100);
-        let a = 1;
-        if (m[4] !== undefined) {
-            if (m[4].endsWith('%')) {
-                a = Color._clampFloat(parseFloat(m[4]) / 100, 0, 1);
-            } else {
-                a = Color._clampFloat(parseFloat(m[4]), 0, 1);
-            }
-        }
-        const [r, g, b] = Color.hwbToRgb(h, w, b_);
-        return new Color(r, g, b, a);
-    }
-
-    /**
-     * Parses an LCH color string and returns a Color instance.
-     *
-     * Supported format: `lch(lightness%, chroma, hue[, alpha])`
-     * - lightness: percentage (0-100%)
-     * - chroma: float (0-230) // capped at 230 to match CSS v4 specification
-     * - hue: integer (0-360)
-     * - alpha: optional float (0-1)
-     * 
-     * Example: `lch(70%, 40.5, 120, 0.8)`
-     *
-     * @private
-     * @static
-     * @param {string} str - The LCH color string to parse.
-     * @returns {Color} A Color instance representing the parsed color.
-     * @throws {Error} If the input string is not a valid LCH format.
-     */
-    static _parseLch(str) {
-        const m = str.match(/^lch\((\d{1,3})%,\s*([0-9]*\.?[0-9]+),\s*(\d{1,3})(?:,\s*([0-9]*\.?[0-9]+))?\)$/);
-        if (!m) throw new Error('Invalid LCH format');
-        const l = Color._clampInt(parseInt(m[1], 10), 0, 100);
-        const c = Color._clampFloat(parseFloat(m[2]), 0, 230);
-        const h = Color._clampInt(parseInt(m[3], 10), 0, 360);
-        const a = m[4] !== undefined ? Color._clampFloat(parseFloat(m[4]), 0, 1) : 1;
-        const [r, g, b] = Color.lchToRgb(l, c, h);
-        return new Color(r, g, b, a);
-    }
-
-    /**
-     * Parses an OKLCH color string and returns a Color instance.
-     *
-     * Supported format: `oklch(<lightness>[%], <chroma>, <hue>[, <alpha>])`
-     * - lightness: percentage (0-100%)
-     * - chroma: float (0-230)
-     * - hue: integer (0-360)
-     * - alpha: optional float (0-1)
-     * 
-     * Example: `oklch(62.5%, 0.15, 120, 0.8)`
-     *
-     * @private
-     * @static
-     * @param {string} str - The OKLCH color string to parse.
-     * @returns {Color} A Color instance representing the parsed color.
-     * @throws {Error} If the input string is not a valid OKLCH format.
-     */
-    static _parseOklch(str) {
-        const m = str.match(/^oklch\(\s*([0-9]*\.?[0-9]+)(%?)\s*,\s*([0-9]*\.?[0-9]+)\s*,\s*([0-9]*\.?[0-9]+)(?:\s*,\s*([0-9]*\.?[0-9]+))?\s*\)$/);
-        if (!m) throw new Error('Invalid OKLCH format');
-        let l = Color._clampFloat(parseFloat(m[1]), 0, 1);
-        if (m[2] === '%') l /= 100; // Convert percent to [0,1]
-        const c = Color._clampFloat(parseFloat(m[3]), 0, 230);
-        const h = Color._clampFloat(parseFloat(m[4]), 0, 360);
-        const a = m[5] !== undefined ? Color._clampFloat(parseFloat(m[5]), 0, 1) : 1;
-        const [r, g, b] = Color.oklchToRgb(l, c, h);
-        return new Color(r, g, b, a);
-    }
-
-    /**
-     * Parses a hex color string and returns a Color instance.
-     * This method supports various hex formats including:
-     * - 3-digit hex (e.g., `#f53`)
-     * - 4-digit hex (e.g., `#f538`)
-     * - 6-digit hex (e.g., `#ff5733`)
-     * - 8-digit hex (e.g., `#ff573380`)
-     * - The alpha channel is optional and defaults to 1 if not provided.
-     * 
-     * @private
-     * @static
-     * @param {string} str - The hex color string to parse.
-     * @returns {Color} A Color instance representing the parsed color.
-     * @throws {Error} If the input string is not a valid hex format.
-     */
-    static _parseHex(str) {
-        const m = str.match(/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/i);
-        if (!m) throw new Error('Invalid hex format');
-        let hex = m[1];
-        let r, g, b, a = 1;
-
-        if (hex.length === 3) {
-            // #RGB (3-digit hex code: #RGB)
-            r = Color._clampInt(parseInt(hex[0] + hex[0], 16), 0, 255);
-            g = Color._clampInt(parseInt(hex[1] + hex[1], 16), 0, 255);
-            b = Color._clampInt(parseInt(hex[2] + hex[2], 16), 0, 255);
-        } else if (hex.length === 4) {
-            // #RGBA (4-digit hex code: #RGBA)
-            r = Color._clampInt(parseInt(hex[0] + hex[0], 16), 0, 255);
-            g = Color._clampInt(parseInt(hex[1] + hex[1], 16), 0, 255);
-            b = Color._clampInt(parseInt(hex[2] + hex[2], 16), 0, 255);
-            a = Color._clampFloat(parseInt(hex[3] + hex[3], 16) / 255, 0, 1);
-        } else if (hex.length === 6) {
-            // #RRGGBB (6-digit hex code: #RRGGBB)
-            r = Color._clampInt(parseInt(hex.slice(0, 2), 16), 0, 255);
-            g = Color._clampInt(parseInt(hex.slice(2, 4), 16), 0, 255);
-            b = Color._clampInt(parseInt(hex.slice(4, 6), 16), 0, 255);
-        } else if (hex.length === 8) {
-            // #RRGGBBAA (8-digit hex code: #RRGGBBAA)
-            r = Color._clampInt(parseInt(hex.slice(0, 2), 16), 0, 255);
-            g = Color._clampInt(parseInt(hex.slice(2, 4), 16), 0, 255);
-            b = Color._clampInt(parseInt(hex.slice(4, 6), 16), 0, 255);
-            a = Color._clampFloat(parseInt(hex.slice(6, 8), 16) / 255, 0, 1);
-        } else {
-            throw new Error('Invalid hex length');
-        }
-        if (
-            typeof r !== 'number' || isNaN(r) ||
-            typeof g !== 'number' || isNaN(g) ||
-            typeof b !== 'number' || isNaN(b)
-        ) {
-            throw new Error('Failed to parse hex color channels');
-        }
-        return new Color(r, g, b, a);
-    }
-
-    /**
-     * Parses an RGB or RGBA color string and returns a Color instance.
-     *
-     * Supported formats:
-     * - rgb(r, g, b)
-     * - rgba(r, g, b, a) (alpha as float)
-     * - rgba(r, g, b, a%) (alpha as percentage)
-     *
-     * @private
-     * @static
-     * @param {string} str - The RGB(A) color string to parse.
-     * @returns {Color} A new Color instance with the parsed values.
-     * @throws {Error} If the input string is not a valid RGB(A) format.
-     */
-    static _parseRgb(str) {
-        const m = str.match(/^rgba?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*(?:,\s*([0-9]*\.?[0-9]+%?)\s*)?\)$/);
-        if (!m) throw new Error('Invalid RGB format');
-        const r = Color._clampInt(parseInt(m[1], 10), 0, 255);
-        const g = Color._clampInt(parseInt(m[2], 10), 0, 255);
-        const b = Color._clampInt(parseInt(m[3], 10), 0, 255);
-        let a = 1;
-        if (m[4] !== undefined) {
-            if (m[4].endsWith('%')) {
-                a = Color._clampFloat(parseFloat(m[4]) / 100, 0, 1);
-            } else {
-                a = Color._clampFloat(parseFloat(m[4]), 0, 1);
-            }
-        }
-        return new Color(r, g, b, a);
-    }
-
-    /**
-     * Parses an HSL or HSLA color string and returns a Color instance.
-     *
-     * Supported formats:
-     * - hsl(h, s%, l%)
-     * - hsla(h, s%, l%, a) (alpha as float)
-     * - hsla(h, s%, l%, a%) (alpha as percentage)
-     *
-     * @private
-     * @param {string} str - The HSL(A) color string to parse.
-     * @returns {Color} A new Color instance representing the parsed color.
-     * @throws {Error} If the input string is not a valid HSL(A) format.
-     */
-    static _parseHsl(str) {
-        const m = str.match(/^hsla?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})%\s*,\s*([0-9]{1,3})%\s*(?:,\s*([0-9]*\.?[0-9]+%?)\s*)?\)$/);
-        if (!m) throw new Error('Invalid HSL format');
-        const h = Color._clampInt(parseInt(m[1], 10), 0, 360);
-        const s = Color._clampInt(parseInt(m[2], 10), 0, 100);
-        const l = Color._clampInt(parseInt(m[3], 10), 0, 100);
-        const [r, g, b] = Color.hslToRgb(h, s, l);
-        let a = 1;
-        if (m[4] !== undefined) {
-            if (m[4].endsWith('%')) {
-                a = Color._clampFloat(parseFloat(m[4]) / 100, 0, 1);
-            } else {
-                a = Color._clampFloat(parseFloat(m[4]), 0, 1);
-            }
-        }
-        return new Color(r, g, b, a);
-    }
-
-    /**
-     * Parses an HSV(A) color string and returns a Color instance.
-     *
-     * Supported formats:
-     *   - hsv(h, s%, v%)
-     *   - hsva(h, s%, v%, a) (alpha as float)
-     *   - hsva(h, s%, v%, a%) (alpha as percentage)
-     *
-     * @private
-     * @param {string} str - The HSV(A) color string to parse.
-     * @returns {Color} The parsed Color instance.
-     * @throws {Error} If the input string is not a valid HSV(A) format.
-     */
-    static _parseHsv(str) {
-        const m = str.match(/^hsva?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})%\s*,\s*([0-9]{1,3})%\s*(?:,\s*([0-9]*\.?[0-9]+%?)\s*)?\)$/);
-        if (!m) throw new Error('Invalid HSV format');
-        const h = Color._clampInt(parseInt(m[1], 10), 0, 360);
-        const s = Color._clampInt(parseInt(m[2], 10), 0, 100);
-        const v = Color._clampInt(parseInt(m[3], 10), 0, 100);
-        const [r, g, b] = Color.hsvToRgb(h, s, v);
-        let a = 1;
-        if (m[4] !== undefined) {
-            if (m[4].endsWith('%')) {
-                a = Color._clampFloat(parseFloat(m[4]) / 100, 0, 1);
-            } else {
-                a = Color._clampFloat(parseFloat(m[4]), 0, 1);
-            }
-        }
-        return new Color(r, g, b, a);
-    }
-
-    /**
-     * Converts the color instance to a plain object with RGBA properties.
-     * @returns {{ r: number, g: number, b: number, a: number }} An object representing the color's red, green, blue, and alpha values.
-     */
-    toObject() {
-        return { r: this.r, g: this.g, b: this.b, a: this.a };
-    }
-
-    /**
-     * Creates a new Color instance from an object containing color properties.
-     *
-     * @param {Object} obj - The object containing color properties.
-     * @param {number} obj.r - The red component (0-255).
-     * @param {number} obj.g - The green component (0-255).
-     * @param {number} obj.b - The blue component (0-255).
-     * @param {number} [obj.a=1] - The alpha component (0-1). Defaults to 1 if not provided.
-     * @returns {Color} A new Color instance.
-     */
-    static fromObject(obj) {
-        return new Color(obj.r, obj.g, obj.b, obj.a ?? 1);
-    }
-
-    /**
-     * Converts the current instance to a plain object suitable for JSON serialization.
-     * @returns {Object} The object representation of the instance.
-     */
-    toJSON() {
-        return this.toObject();
-    }
-
-    /**
-     * Creates a Color instance from a JSON object.
-     * @param {Object} json - The JSON object representing a color.
-     * @returns {Color} The created Color instance.
-     */
-    static fromJSON(json) {
-        return Color.fromObject(json);
-    }
-
-    /**
-     * Clamp a value to an integer within a specified range.
-     * @static
-     * @param {number} value Value to clamp
-     * @param {number} min Minimum value
-     * @param {number} max Maximum value
-     * @returns {number} Clamped integer
-     */
-    static _clampInt(value, min, max) {
-        const v = Math.round(Number(value) || 0);
-        return Math.min(max, Math.max(min, v));
-    }
-
-    /**
-     * Clamp a value to a float within a specified range.
-     * @static
-     * @param {number} value Value to clamp
-     * @param {number} min Minimum value
-     * @param {number} max Maximum value
-     * @returns {number} Clamped float
-     */
-    static _clampFloat(value, min, max) {
-        let v = Number(value);
-        if (isNaN(v)) return min;
-        return Math.min(max, Math.max(min, v));
-    }
-
-    /**
      * Convert RGBA values to a hex color string.
      * @static
      * @param {number} r Red channel (0-255)
@@ -1377,6 +1249,60 @@ const Color = class {
         ];
     }
 
+    // =========================
+    // 9. Internal Helpers
+    // =========================
+    static _clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    /**
+     * Clamp a value to an integer within a specified range.
+     * @static
+     * @param {number} value Value to clamp
+     * @param {number} min Minimum value
+     * @param {number} max Maximum value
+     * @returns {number} Clamped integer
+     */
+    static _clampInt(value, min, max) {
+        const v = Math.round(Number(value) || 0);
+        return Color._clamp(v, min, max);
+    }
+
+    /**
+     * Clamp a value to a float within a specified range.
+     * @static
+     * @param {number} value Value to clamp
+     * @param {number} min Minimum value
+     * @param {number} max Maximum value
+     * @returns {number} Clamped float
+     */
+    static _clampFloat(value, min, max) {
+        let v = Number(value);
+        if (isNaN(v)) return min;
+        return Color._clamp(v, min, max);
+    }
+
+    /**
+     * Convert sRGB to linear RGB.
+     * @static
+     * @param {number} c sRGB value
+     * @returns {number} Linear RGB value
+     */
+    static _srgbToLinear(c) {
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    /**
+     * Convert linear RGB to sRGB.
+     * @static
+     * @param {number} c Linear RGB value
+     * @returns {number} sRGB value
+     */
+    static _linearToSrgb(c) {
+        return c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+    }
+    
     /**
      * Compile color representations to specified formats and cache them.
      * @private

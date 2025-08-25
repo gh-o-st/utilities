@@ -1,0 +1,165 @@
+/* A collection of CSS easing functions for animations */
+.ease {
+    transition-timing-function: ease;
+}
+.ease-in {
+    transition-timing-function: ease-in;
+}
+.ease-out {
+    transition-timing-function: ease-out;
+}
+.ease-in-out {
+    transition-timing-function: ease-in-out;
+}
+.ease-cubic {
+    transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.ease-in-cubic {
+    transition-timing-function: cubic-bezier(0.55, 0.06, 0.68, 0.19);
+}
+.ease-out-cubic {
+    transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.ease-in-out-cubic {
+    transition-timing-function: cubic-bezier(0.65, 0.05, 0.36, 1);
+}
+.ease-quart {
+    transition-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
+}
+.ease-in-quart {
+    transition-timing-function: cubic-bezier(0.895, 0.03, 0.685, 0.22);
+}
+.ease-out-quart {
+    transition-timing-function: cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.ease-in-out-quart {
+    transition-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
+}
+.ease-quint {
+    transition-timing-function: cubic-bezier(0.86, 0, 0.07, 1);
+}
+.ease-in-quint {
+    transition-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
+}
+.ease-out-quint {
+    transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+.ease-in-out-quint {
+    transition-timing-function: cubic-bezier(0.86, 0, 0.07, 1);
+}
+.ease-elastic {
+    animation: elastic 1s both;
+}
+.ease-in-elastic {
+    animation: in-elastic 1s both;
+}
+.ease-out-elastic {
+    animation: out-elastic 1s both;
+}
+.ease-in-out-elastic {
+    animation: in-out-elastic 1s both;
+}
+.ease-back {
+    animation: back 1s both;
+}
+.ease-in-back {
+    animation: in-back 1s both;
+}
+.ease-out-back {
+    animation: out-back 1s both;
+}
+.ease-in-out-back {
+    animation: in-out-back 1s both;
+}
+.ease-bounce {
+    animation: bounce 1s both;
+}
+.ease-in-bounce {
+    animation: in-bounce 1s both;
+}
+.ease-out-bounce {
+    animation: out-bounce 1s both;
+}
+.ease-in-out-bounce {
+    animation: in-out-bounce 1s both;
+}
+
+@keyframes elastic {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.25); }
+    40% { transform: scale(0.75); }
+    50% { transform: scale(1.15); }
+    65% { transform: scale(0.95); }
+    75% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+@keyframes in-elastic {
+    0% { transform: scale(0.5); }
+    30% { transform: scale(1.25); }
+    40% { transform: scale(0.75); }
+    50% { transform: scale(1.15); }
+    65% { transform: scale(0.95); }
+    75% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+@keyframes out-elastic {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.25); }
+    40% { transform: scale(0.75); }
+    50% { transform: scale(1.15); }
+    65% { transform: scale(0.95); }
+    75% { transform: scale(1.05); }
+    100% { transform: scale(1.5); }
+}
+@keyframes in-out-elastic {
+    0% { transform: scale(0.5); }
+    30% { transform: scale(1.25); }
+    40% { transform: scale(0.75); }
+    50% { transform: scale(1.15); }
+    65% { transform: scale(0.95); }
+    75% { transform: scale(1.05); }
+    100% { transform: scale(1.5); }
+}
+@keyframes back {
+    0% { transform: translateX(-50px); }
+    80% { transform: translateX(10px); }
+    100% { transform: translateX(0); }
+}
+@keyframes in-back {
+    0% { transform: translateX(-50px); }
+    100% { transform: translateX(0); }
+}
+@keyframes out-back {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(50px); }
+}
+@keyframes in-out-back {
+    0% { transform: translateX(-50px); }
+    50% { transform: translateX(10px); }
+    100% { transform: translateX(50px); }
+}
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-30px); }
+    60% { transform: translateY(-15px); }
+}
+@keyframes in-bounce {
+    0% { transform: translateY(-100px); }
+    60% { transform: translateY(0); }
+    80% { transform: translateY(-15px); }
+    100% { transform: translateY(0); }
+}
+@keyframes out-bounce {
+    0% { transform: translateY(0); }
+    20% { transform: translateY(-15px); }
+    40% { transform: translateY(-30px); }
+    100% { transform: translateY(-100px); }
+}
+@keyframes in-out-bounce {
+    0% { transform: translateY(-100px); }
+    20% { transform: translateY(0); }
+    40% { transform: translateY(-30px); }
+    60% { transform: translateY(0); }
+    80% { transform: translateY(-15px); }
+    100% { transform: translateY(-100px); }
+}
